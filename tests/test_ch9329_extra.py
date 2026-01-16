@@ -2,7 +2,7 @@
 Extended tests for CH9329 mouse operations and value clamping.
 """
 import pytest
-from src.ch9329 import CH9329, CMD_SEND_MS_REL, CMD_SEND_MS_ABS
+from pych9329_hid.ch9329 import CH9329, CMD_SEND_MS_REL, CMD_SEND_MS_ABS
 from conftest import FakeTransport, build_ack
 
 

@@ -6,7 +6,7 @@ import random, math
 # Add parent directories to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../'))
 
-from src import HIDController, SerialTransport, CH9329
+from pych9329_hid import HIDController, SerialTransport, CH9329
 
 
 def run_mouse_test(hid):

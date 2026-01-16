@@ -2,7 +2,7 @@
 Comprehensive tests for CH9329 protocol implementation.
 """
 import pytest
-from src.ch9329 import CH9329, FRAME_HEAD, ADDR_DEFAULT, CMD_SEND_KEY, CMD_SEND_MS_REL, CMD_SEND_MS_ABS
+from pych9329_hid.ch9329 import CH9329, FRAME_HEAD, ADDR_DEFAULT, CMD_SEND_KEY, CMD_SEND_MS_REL, CMD_SEND_MS_ABS
 from conftest import FakeTransport, build_ack
 
 

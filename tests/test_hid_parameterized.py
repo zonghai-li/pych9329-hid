@@ -2,7 +2,7 @@
 Parameterized tests for HIDController keyboard and mouse operations.
 """
 import pytest
-from src import HIDController
+from pych9329_hid import HIDController
 from conftest import FakeCH
 
 

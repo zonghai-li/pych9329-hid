@@ -1,6 +1,6 @@
 import pytest
 
-from src import transport
+from pych9329_hid import transport
 
 
 class FakeSerial:

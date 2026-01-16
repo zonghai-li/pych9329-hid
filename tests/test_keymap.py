@@ -1,5 +1,5 @@
 import pytest
-from src.keymap import char_to_hid, MOD_LSHFT, MOD_NONE
+from pych9329_hid.keymap import char_to_hid, MOD_LSHFT, MOD_NONE
 
 
 def test_letters_and_shift():

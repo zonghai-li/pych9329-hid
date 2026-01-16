@@ -27,12 +27,28 @@ pip install pych9329-hid
 
 ---
 
+### Import Options
+
+You can use either of the full package name or shorter alias:
+
+```python
+# Option 1: Full package name
+from pych9329_hid import HIDController, CH9329, SerialTransport
+
+# Option 2: Short alias (recommended)
+from pych9329 import HIDController, CH9329, SerialTransport
+```
+
+Both options work identically - choose whichever you prefer!
+
+---
+
 ## 🚀 Quick Start
 
 ### Basic Usage - Low Level Protocol
 
 ```python
-from pych9329_hid import CH9329, SerialTransport
+from pych9329 import CH9329, SerialTransport
 
 # Create transport and CH9329 instance
 with SerialTransport(port='/dev/ttyUSB0', baudrate=115200) as transport:
@@ -51,7 +67,7 @@ with SerialTransport(port='/dev/ttyUSB0', baudrate=115200) as transport:
 ### High-Level HID Controller
 
 ```python
-from pych9329_hid import HIDController, CH9329, SerialTransport
+from pych9329 import HIDController, CH9329, SerialTransport
 
 # Create HID controller
 with SerialTransport(port='/dev/ttyUSB0', baudrate=115200) as transport:

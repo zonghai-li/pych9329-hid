@@ -2,9 +2,9 @@
 Error handling and edge case tests for CH9329 and HIDController.
 """
 import pytest
-from src import HIDController, CH9329
+from pych9329_hid import HIDController, CH9329
 from conftest import FakeCH, FakeTransport, build_ack
-from src.ch9329 import CMD_SEND_KEY, CMD_SEND_MS_REL, CMD_SEND_MS_ABS
+from pych9329_hid.ch9329 import CMD_SEND_KEY, CMD_SEND_MS_REL, CMD_SEND_MS_ABS
 
 
 class TestCH9329ErrorHandling:

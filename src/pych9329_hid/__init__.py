@@ -6,8 +6,8 @@ from .ch9329 import CH9329
 from .hid import HIDController
 from .transport import SerialTransport
 
-__version__ = "0.1.0"
-__author__ = "zonghai"
+__version__ = "0.1.3"
+__author__ = "zonghai-li"
 __email__ = "zonghai@gmail.com"
 
 __all__ = ["CH9329", "HIDController", "SerialTransport", "__version__"]
