@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pych9329-hid"
+version = "0.1.0"
+description = "PyCH9329-HID is a high-level Python package for CH9329 HID chip, designed to provide seamless, OS-independent peripheral control via serial communication."
+readme = "README.md"
+requires-python = ">=3"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    {name = "zonghai", email = "zonghai@gmail.com"}
+]
+keywords = ["ch9329", "usb", "hid", "serial"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3"
+]
+
+[project.urls]
+Homepage = "https://github.com/zonghai/pych9329-hid"
+Repository = "https://github.com/zonghai/pych9329-hid"
+Issues = "https://github.com/zonghai/pych9329-hid/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

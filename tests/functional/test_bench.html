@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>HID Unified Test Bench - System Level</title>
+  <style>
+    :root{--gap:12px;--panel-bg:#fbfbfb;--accent:#2563eb;--success:#22c55e}
+    body{font-family:Inter,Arial,sans-serif;margin:18px;color:#222;background:#f0f2f5}
+    h1{font-size:18px;margin:0 0 12px;color:#1e293b}
+    
+    /* 导航 Tab */
+    .tabs{display:flex;gap:4px;margin-bottom:-1px}
+    .tab-btn{padding:8px 16px;border:1px solid #e4e4e4;background:#eee;border-radius:6px 6px 0 0;cursor:pointer;font-weight:600;color:#64748b}
+    .tab-btn.active{background:var(--panel-bg);border-bottom:1px solid var(--panel-bg);color:var(--accent);z-index:2}
+    .tab-content{display:none !important}
+    .tab-content.active{display:block !important}
+
+    .layout{display:grid;grid-template-columns:1fr 420px;gap:var(--gap);height:calc(100vh - 150px)}
+    .panel{background:var(--panel-bg);border:1px solid #e4e4e4;padding:12px;border-radius:0 6px 6px 6px;box-shadow:0 1px 3px rgba(0,0,0,0.05);display:flex;flex-direction:column}
+    
+    /* 鼠标测试网格 */
+    .mouse-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:10px 0}
+    .mouse-btn{height:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:2px dashed #cbd5e1;background:#fff;border-radius:8px;font-weight:600;transition:all 0.1s;cursor:crosshair;text-align:center;font-size:13px}
+    .mouse-btn.success{background:var(--success) !important;color:white;border-style:solid;border-color:#16a34a}
+    .mouse-btn.error{background:#ef4444 !important;color:white;border-style:solid;border-color:#dc2626}
+    .mouse-btn span{font-size:10px;color:#94a3b8;margin-top:4px}
+    .mouse-btn.success span{color:#dcfce7}
+    .mouse-btn.error span{color:#fee2e2}
+
+    /* 画布区域 */
+    #paintCanvas{background:#fff; border:1px solid #ccc; cursor:crosshair; display:block; margin:0 auto; box-shadow: inset 0 0 5px rgba(0,0,0,0.05)}
+
+    /* 日志与文本区 */
+    textarea.notepad{width:100%;flex:1;font-family:monospace;font-size:13px;padding:8px;box-sizing:border-box;border:1px solid #ddd;display:block;resize:none}
+    #log{flex:1;overflow:auto;border:1px solid #e0e0e0;background:#fff;padding:8px;font-family:monospace;font-size:12px;line-height:1.4}
+    
+    /* 滚动测试区域 */
+    .scroll-test-area{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1;min-height:0;overflow:hidden}
+    .scroll-test-area > div{display:flex;flex-direction:column;min-height:0}
+    .scroll-info{flex-shrink:0;padding:8px;background:#f0f0f0;border:1px solid #ccc;border-radius:4px;font-family:monospace;font-size:12px;font-weight:bold;margin-bottom:8px}
+    .scroll-info-value{color:#2563eb}
+    .scroll-info-delta{color:#22c55e}
+    .scroll-info-direction{color:#f59e0b;font-size:14px}
+    .scroll-container{border:2px solid #333;background:#fff;flex:1;min-height:0;overflow:auto;position:relative}
+    .grid-content{display:grid;grid-template-columns:repeat(20,50px);grid-template-rows:repeat(20,50px);gap:0}
+    .grid-cell{border:1px solid #ddd;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:bold;cursor:pointer;user-select:none}
+    .grid-cell:hover{opacity:0.8}
+    .grid-content.h-scroll{grid-template-columns:repeat(40,50px);grid-template-rows:repeat(6,50px)}
+    
+    /* 控制栏 */
+    .controls{display:flex;gap:8px;margin-bottom:12px;align-items:center}
+    button.action-btn{padding:6px 12px;border:1px solid #cfcfcf;background:#fff;border-radius:4px;cursor:pointer}
+    button#start.on{background:#dcfce7;border-color:#22c55e;color:#16a34a}
+    #sys-pos{font-family:monospace;font-weight:bold;color:var(--accent);background:#fff;padding:4px 8px;border:1px solid #ddd;border-radius:4px}
+    
+    /* 修饰键状态 */
+    .mod-ind{padding:6px 8px;border:1px solid #ddd;border-radius:4px;background:#fff;display:flex;align-items:center;gap:6px;font-size:11px;flex:1}
+    .mod-pill{padding:2px 6px;border-radius:10px;font-weight:600;font-size:10px}
+    .mod-pill.on{background:#16a34a;color:#fff}
+    .mod-pill.off{background:#f3f4f6;color:#374151}
+    .small{font-size:12px;color:#64748b}
+  </style>
+</head>
+<body>
+  <h1>HID Unified Test Bench (System Coordinates)</h1>
+  
+  <div class="tabs">
+    <button class="tab-btn active" onclick="openTab(event, 'kbd-tab')">Keyboard</button>
+    <button class="tab-btn" onclick="openTab(event, 'mouse-tab')">Mouse Click</button>
+    <button class="tab-btn" onclick="openTab(event, 'canvas-tab')">Canvas Drawing</button>
+    <button class="tab-btn" onclick="openTab(event, 'scroll-tab')">Scrolling</button>
+  </div>
+
+  <div class="layout">
+    <div class="panel">
+      <div class="controls">
+        <button class="action-btn" id="start">Start Capture</button>
+        <button class="action-btn" id="stop">Stop Capture</button>
+        <button class="action-btn" id="clear-all">Clear All</button>
+        <span id="sys-pos">System Pointer: X: 0, Y: 0</span>
+      </div>
+
+      <div id="kbd-tab" class="tab-content active" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+        <textarea id="notepad" placeholder="1. Click 'Start Capture'&#10;2. Focus here to test keyboard..."></textarea>
+      </div>
+
+      <div id="mouse-tab" class="tab-content">
+        <div class="mouse-grid">
+          <div id="m-click" class="mouse-btn">Left Click<span class="coord-hint">---</span></div>
+          <div id="m-double" class="mouse-btn">Double Click<span class="coord-hint">---</span></div>
+          <div id="m-right" class="mouse-btn">Right Click<span class="coord-hint">---</span></div>
+          <div id="m-middle" class="mouse-btn">Middle Click<span class="coord-hint">---</span></div>
+          <div id="m-cmd" class="mouse-btn">Cmd + Click<span class="coord-hint">---</span></div>
+          <div id="m-shift" class="mouse-btn">Shift + Click<span class="coord-hint">---</span></div>
+        </div>
+        <p class="small">提示：按钮显示的坐标是相对于系统屏幕左上角的 (e.screenX, e.screenY)。</p>
+      </div>
+
+      <div id="canvas-tab" class="tab-content">
+        <div style="display:flex; justify-content:space-between; margin-bottom:8px">
+          <span class="small">绘制测试区域 (拖拽识别)</span>
+          <button class="action-btn" style="padding:2px 8px; font-size:11px" onclick="clearCanvas()">Clear Canvas</button>
+        </div>
+        <canvas id="paintCanvas" style="width:100%;height:350px"></canvas>
+      </div>
+
+      <div id="scroll-tab" class="tab-content" style="flex:1;display:flex;flex-direction:column;overflow:hidden">
+        <div class="scroll-test-area">
+          <div>
+            <div class="scroll-info">Vertical: <span class="scroll-info-value" id="vscroll-pos">0px</span> <span class="scroll-info-delta" id="vscroll-delta"></span> <span class="scroll-info-direction" id="vscroll-dir"></span></div>
+            <div id="vscroll-container" class="scroll-container"></div>
+          </div>
+          <div>
+            <div class="scroll-info">Horizontal: <span class="scroll-info-value" id="hscroll-pos">0px</span> <span class="scroll-info-delta" id="hscroll-delta"></span> <span class="scroll-info-direction" id="hscroll-dir"></span></div>
+            <div id="hscroll-container" class="scroll-container"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div style="display:flex;gap:4px;margin-bottom:12px">
+        <div id="m-shift-ind" class="mod-ind">Shift <span class="mod-pill off">OFF</span></div>
+        <div id="m-ctrl-ind" class="mod-ind">Ctrl <span class="mod-pill off">OFF</span></div>
+        <div id="m-alt-ind" class="mod-ind">Alt <span class="mod-pill off">OFF</span></div>
+        <div id="m-meta-ind" class="mod-ind">Meta <span class="mod-pill off">OFF</span></div>
+      </div>
+      <div style="display:flex;gap:4px;margin-bottom:12px">
+        <div id="m-btn-left-ind" class="mod-ind">Left <span class="mod-pill off">UP</span></div>
+        <div id="m-btn-mid-ind" class="mod-ind">Mid <span class="mod-pill off">UP</span></div>
+        <div id="m-btn-right-ind" class="mod-ind">Right <span class="mod-pill off">UP</span></div>
+      </div>
+      <div id="log"></div>
+    </div>
+  </div>
+
+  <script>
+    const logEl = document.getElementById('log');
+    const startBtn = document.getElementById('start');
+    const sysPosEl = document.getElementById('sys-pos');
+    const canvas = document.getElementById('paintCanvas');
+    let ctx = canvas.getContext('2d');
+    
+    let capturing = false;
+    let isDrawing = false;
+    
+    // 初始化 canvas 尺寸
+    function resizeCanvas() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = 350;
+      // 重新获取ctx以保证笔刷正确
+      ctx = canvas.getContext('2d');
+      ctx.strokeStyle = '#2563eb';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // Tab 切换逻辑
+    function openTab(evt, tabId) {
+      document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      evt.currentTarget.classList.add('active');
+      // 重新调整canvas尺寸（如果切换到canvas tab）
+      if(tabId === 'canvas-tab') {
+        setTimeout(resizeCanvas, 50);
+      }
+    }
+
+    // 日志记录逻辑
+    function appendLog(obj){
+      if(!capturing && obj.type !== 'sys') return;
+      const t = new Date().toLocaleTimeString('en-GB', {hour12:false}) + '.' + String(Date.now()%1000).padStart(3,'0');
+      const mods = `[${obj.shift?'S':''}${obj.ctrl?'C':''}${obj.alt?'A':''}${obj.meta?'M':''}]`;
+      const div = document.createElement('div');
+      div.textContent = `${t} | ${obj.type.toUpperCase().padEnd(8)} | ${obj.key.padEnd(10)} | ${mods} | ${obj.detail || ''}`;
+      logEl.appendChild(div);
+      logEl.scrollTop = logEl.scrollHeight;
+      updateModPills(obj);
+    }
+
+    function updateModPills(obj){
+      const set = (id, val) => {
+        const el = document.getElementById(id).querySelector('span');
+        if(!el) return;
+        el.textContent = val ? 'ON' : 'OFF';
+        el.className = `mod-pill ${val?'on':'off'}`;
+      }
+      if(obj.hasOwnProperty('shift')) set('m-shift-ind', obj.shift);
+      if(obj.hasOwnProperty('ctrl')) set('m-ctrl-ind', obj.ctrl);
+      if(obj.hasOwnProperty('alt')) set('m-alt-ind', obj.alt);
+      if(obj.hasOwnProperty('meta')) set('m-meta-ind', obj.meta);
+    }
+
+    function updateMouseButtonPills(e){
+      const setBtn = (id, pressed) => {
+        const el = document.getElementById(id).querySelector('span');
+        if(!el) return;
+        el.textContent = pressed ? 'DOWN' : 'UP';
+        el.className = `mod-pill ${pressed?'on':'off'}`;
+      }
+      setBtn('m-btn-left-ind', (e.buttons & 1) !== 0);
+      setBtn('m-btn-mid-ind', (e.buttons & 4) !== 0);
+      setBtn('m-btn-right-ind', (e.buttons & 2) !== 0);
+    }
+
+    // 系统坐标监听 (System Screen Level)
+    window.addEventListener('mousemove', (e) => {
+      sysPosEl.textContent = `System Pointer: X: ${e.screenX}, Y: ${e.screenY}`;
+      updateMouseButtonPills(e);
+      if(e.target.closest('.mouse-btn')) {
+        const hint = e.target.closest('.mouse-btn').querySelector('.coord-hint');
+        if(hint) hint.textContent = `(${e.screenX}, ${e.screenY})`;
+      }
+    });
+
+    // 鼠标点击测试
+    const buttonExpectations = {
+      'm-click': { events: ['mousedown'], button: 0, shift: false, ctrl: false, alt: false, meta: false },
+      'm-double': { events: ['dblclick'], button: 0, shift: false, ctrl: false, alt: false, meta: false },
+      'm-right': { events: ['contextmenu', 'mousedown'], button: 2, shift: false, ctrl: false, alt: false, meta: false },
+      'm-middle': { events: ['mousedown'], button: 1, shift: false, ctrl: false, alt: false, meta: false },
+      'm-cmd': { events: ['mousedown'], button: 0, shift: false, ctrl: false, alt: false, meta: true },
+      'm-shift': { events: ['mousedown'], button: 0, shift: true, ctrl: false, alt: false, meta: false }
+    };
+
+    const buttonTimeouts = {};
+
+    function showButtonFeedback(btnId, isCorrect) {
+      const btn = document.getElementById(btnId);
+      if(!btn) return;
+      
+      // Clear any existing timeout
+      if(buttonTimeouts[btnId]) clearTimeout(buttonTimeouts[btnId]);
+      
+      // Remove both classes first
+      btn.classList.remove('success', 'error');
+      
+      // Add appropriate class
+      btn.classList.add(isCorrect ? 'success' : 'error');
+      
+      // Set timeout to remove after 3 seconds
+      buttonTimeouts[btnId] = setTimeout(() => {
+        btn.classList.remove('success', 'error');
+      }, 3000);
+    }
+
+    function validateMouseEvent(btnId, e, eventType) {
+      const expectation = buttonExpectations[btnId];
+      if(!expectation) return false;
+      
+      // Check if this event type is expected
+      if(!expectation.events.includes(eventType)) return false;
+      
+      // For non-dblclick events, check button
+      if(eventType !== 'dblclick' && e.button !== undefined && e.button !== expectation.button) {
+        return false;
+      }
+      
+      // Check modifier keys
+      if(e.shiftKey !== expectation.shift) return false;
+      if(e.ctrlKey !== expectation.ctrl) return false;
+      if(e.altKey !== expectation.alt) return false;
+      if(e.metaKey !== expectation.meta) return false;
+      
+      return true;
+    }
+
+    document.querySelectorAll('.mouse-btn').forEach(btn => {
+      const btnId = btn.id;
+      
+      const handleMouse = (e, eventType) => {
+        if(!capturing) return;
+        e.preventDefault();
+        
+        const isCorrect = validateMouseEvent(btnId, e, eventType);
+        showButtonFeedback(btnId, isCorrect);
+        updateMouseButtonPills(e);
+        
+        appendLog({
+          type: eventType, key: e.button===0?'Left':(e.button===1?'Mid':'Right'),
+          shift:e.shiftKey, ctrl:e.ctrlKey, alt:e.altKey, meta:e.metaKey,
+          detail: `Pos:(${e.screenX},${e.screenY}) [${isCorrect?'✓':'✗'}]`
+        });
+      };
+      
+      btn.addEventListener('mousedown', (e) => handleMouse(e, 'mousedown'));
+      btn.addEventListener('dblclick', (e) => handleMouse(e, 'dblclick'));
+      btn.addEventListener('contextmenu', (e) => handleMouse(e, 'contextmenu'));
+    });
+
+    // Canvas 绘图逻辑 (测试 Drag)
+    function getCanvasPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      if(!capturing) return;
+      if(e.button !== 0) return; // Only allow left mouse button
+      isDrawing = true;
+      const pos = getCanvasPos(e);
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+      updateMouseButtonPills(e);
+      appendLog({type:'drag', key:'Start', shift:e.shiftKey, meta:e.metaKey, detail:`Scr(${e.screenX},${e.screenY})`});
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if(!isDrawing || !capturing) return;
+      updateMouseButtonPills(e);
+      const pos = getCanvasPos(e);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+    });
+
+    canvas.addEventListener('mouseup', () => {
+      isDrawing = false;
+      ctx.closePath();
+      updateMouseButtonPills(event);
+      appendLog({type:'drag', key:'End'});
+    });
+
+    function clearCanvas() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
+
+    // 初始化滚动测试区域 - 网格内容
+    function initScrollContainers() {
+      const vscroll = document.getElementById('vscroll-container');
+      const hscroll = document.getElementById('hscroll-container');
+      
+      if(!vscroll || !hscroll) return;
+      
+      const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2', '#F8B739', '#6C5CE7'];
+      
+      // 竖直滚动 - 20x20 网格
+      const vGrid = document.createElement('div');
+      vGrid.className = 'grid-content';
+      for(let i = 0; i < 400; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'grid-cell';
+        cell.style.backgroundColor = colors[i % colors.length];
+        cell.textContent = i + 1;
+        vGrid.appendChild(cell);
+      }
+      vscroll.appendChild(vGrid);
+      
+      // 水平滚动 - 40x6 网格
+      const hGrid = document.createElement('div');
+      hGrid.className = 'grid-content h-scroll';
+      for(let i = 0; i < 240; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'grid-cell';
+        cell.style.backgroundColor = colors[i % colors.length];
+        cell.textContent = i + 1;
+        hGrid.appendChild(cell);
+      }
+      hscroll.appendChild(hGrid);
+      
+      // 竖直滚动事件监听
+      let lastVScroll = 0;
+      vscroll.addEventListener('scroll', (e) => {
+        const current = e.target.scrollTop;
+        const delta = current - lastVScroll;
+        const direction = delta > 0 ? '↓' : delta < 0 ? '↑' : '';
+        
+        document.getElementById('vscroll-pos').textContent = current + 'px';
+        document.getElementById('vscroll-delta').textContent = (delta >= 0 ? '+' : '') + delta + 'px';
+        document.getElementById('vscroll-dir').textContent = direction;
+        
+        if(capturing) {
+          appendLog({
+            type: 'vscroll',
+            key: 'VScroll',
+            detail: `Position: ${current}px, Delta: ${delta > 0 ? '+' : ''}${delta}px ${direction}`
+          });
+        }
+        
+        lastVScroll = current;
+      });
+      
+      // 水平滚动事件监听
+      let lastHScroll = 0;
+      hscroll.addEventListener('scroll', (e) => {
+        const current = e.target.scrollLeft;
+        const delta = current - lastHScroll;
+        const direction = delta > 0 ? '→' : delta < 0 ? '←' : '';
+        
+        document.getElementById('hscroll-pos').textContent = current + 'px';
+        document.getElementById('hscroll-delta').textContent = (delta >= 0 ? '+' : '') + delta + 'px';
+        document.getElementById('hscroll-dir').textContent = direction;
+        
+        if(capturing) {
+          appendLog({
+            type: 'hscroll',
+            key: 'HScroll',
+            detail: `Position: ${current}px, Delta: ${delta > 0 ? '+' : ''}${delta}px ${direction}`
+          });
+        }
+        
+        lastHScroll = current;
+      });
+    }
+    initScrollContainers();
+
+    // 键盘监听 (全局)
+    window.addEventListener('keydown', (e) => {
+      if(!capturing) return;
+      appendLog({type:'keydown', key:e.key, code:e.code, shift:e.shiftKey, ctrl:e.ctrlKey, alt:e.altKey, meta:e.metaKey});
+    });
+    window.addEventListener('keyup', (e) => {
+      if(!capturing) return;
+      appendLog({type:'keyup', key:e.key, code:e.code, shift:e.shiftKey, ctrl:e.ctrlKey, alt:e.altKey, meta:e.metaKey});
+    });
+
+    // 控制
+    startBtn.onclick = () => { capturing = true; startBtn.classList.add('on'); appendLog({type:'sys', key:'start'}); }
+    document.getElementById('stop').onclick = () => { capturing = false; startBtn.classList.remove('on'); appendLog({type:'sys', key:'stop'}); }
+    document.getElementById('clear-all').onclick = () => { logEl.innerHTML = ''; clearCanvas(); document.getElementById('notepad').value = ''; }
+  </script>
+</body>
+</html>
