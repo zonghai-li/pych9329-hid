@@ -28,6 +28,7 @@ MOD_MAP = {
     'cmd':   MOD_LGUI,
     'command':   MOD_LGUI,
     'meta':  MOD_LGUI,
+    'super': MOD_LGUI,
     
 }
 
