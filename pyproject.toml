@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pych9329-hid"
-version = "0.1.3"
+version = "0.1.4"
 description = "PyCH9329-HID is a high-level Python package for CH9329 HID chip, designed to provide seamless, OS-independent peripheral control via serial communication."
 readme = "README.md"
 requires-python = ">=3"
