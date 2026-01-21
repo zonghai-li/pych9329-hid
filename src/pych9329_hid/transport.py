@@ -53,7 +53,7 @@ class SerialTransport:
 
     def close(self):
         """Safely close the serial port."""
-        if hasattr(self, 'ser') and self.ser.is_open:
+        if self.ser.is_open:
             self.ser.close()
 
     # --- Support for 'with' statement ---

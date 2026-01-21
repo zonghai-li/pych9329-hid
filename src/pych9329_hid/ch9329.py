@@ -3,6 +3,7 @@
 # @description Low-level driver for CH9329 UART-to-HID chip.
 
 import time
+import warnings
 
 # Protocol Constants
 FRAME_HEAD    = b'\x57\xAB'
@@ -101,7 +102,8 @@ class CH9329:
             
             time.sleep(0.02) # Short wait before retry( interval between attempts)
 
-        raise CH9329TimeoutError(f"Failed to receive ACK for CMD 0x{cmd:02X} after {retry} retries.")
+        warnings.warn(f"Failed to receive ACK for CMD 0x{cmd:02X} after {retry} retries.")
+        return False
 
     # -------------------------------------------------
     # Keyboard API
