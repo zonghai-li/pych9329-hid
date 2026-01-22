@@ -113,44 +113,9 @@ The CH9329 protocol layer uses a hybrid error handling strategy:
   - Serial port read/write failure
   - Invalid serial port configuration
 
-**Example:**
-
-```python
-# Handle soft errors (timeout/ACK error)
-if not ch9329.send_keyboard(modifier=0, keycodes=[0x04]):
-    print("Timeout or ACK error, but continuing...")
-
-# Handle hard errors (transport failure)
-try:
-    ch9329.send_mouse_abs(x=100, y=200)
-except SerialTransportError as e:
-    print(f"Transport error: {e}")
-    # Reconnect or exit
-```
-
 ### HIDController Layer
 
 HIDController does not check return values from CH9329 - failures propagate naturally to the caller. This allows users to decide how to handle errors based on their use case.
-
-**Example:**
-
-```python
-# Option 1: Ignore failures
-controller.press('a')  # Continues even if timeout
-
-# Option 2: Check and retry
-for _ in range(3):
-    if controller.press('a'):
-        break
-    time.sleep(0.1)
-
-# Option 3: Handle explicitly
-try:
-    controller.moveTo(100, 200)
-except SerialTransportError as e:
-    print(f"Fatal error: {e}")
-    sys.exit(1)
-```
 
 ### SerialTransport Layer
 
@@ -159,26 +124,7 @@ The transport layer provides custom exceptions:
 - `SerialTransportError`: Base exception for transport errors
 - `SerialTransportClosedError`: Raised when operation attempted on closed transport
 
-**Example:**
-
-```python
-try:
-    with SerialTransport(port='/dev/ttyUSB0') as transport:
-        ch9329 = CH9329(transport)
-        # ... use ch9329
-except SerialTransportError as e:
-    print(f"Failed to open serial port: {e}")
-```
-
 ---
-
-### CH9329 (Low-Level Protocol)
-
-| Method | Description | Returns |
-|---------|-------------|---------|
-| `send_keyboard(modifier, keycodes)` | Send keyboard report with modifier and keycodes | `True` if successful, `False` if timeout/ACK error |
-| `send_mouse_rel(dx, dy, buttons, wheel)` | Send relative mouse movement | `True` if successful, `False` if timeout/ACK error |
-| `send_mouse_abs(x, y, buttons, wheel)` | Send absolute mouse position | `True` if successful, `False` if timeout/ACK error |
 
 ### HIDController (High-Level API)
 
@@ -189,7 +135,7 @@ except SerialTransportError as e:
 | `press(key)` | Press and release a key | `controller.press('a')` |
 | `keyDown(key)` | Press and hold a key | `controller.keyDown('shift')` |
 | `keyUp(key)` | Release a key | `controller.keyUp('shift')` |
-| `write(text)` | Type a string | `controller.write('Hello')` |
+| `write(text)` | Type a string | `controller.write('Hello\n')` |
 | `hotkey(*keys)` | Press key combination | `controller.hotkey('cmd', 'a')` |
 
 #### Mouse Operations
@@ -262,7 +208,7 @@ for port in ports:
 ### Complete Automation Example
 
 ```python
-from pych9329_hid import HIDController, CH9329, SerialTransport
+from pych9329 import HIDController, CH9329, SerialTransport
 import time
 
 with SerialTransport(port='/dev/ttyUSB0', baudrate=115200) as transport:
