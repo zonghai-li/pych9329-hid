@@ -1,26 +1,41 @@
 import pytest
 
 from pych9329_hid import transport
+from pych9329_hid.transport import SerialTransportError, SerialTransportClosedError
 
 
 class FakeSerial:
-    def __init__(self):
+    def __init__(self, should_fail_open=False, should_fail_write=False, should_fail_read=False):
         self.written = b''
         self._buffer = b''
         self.is_open = True
+        self.should_fail_open = should_fail_open
+        self.should_fail_write = should_fail_write
+        self.should_fail_read = should_fail_read
+        self.SerialException = Exception
 
     def write(self, data):
+        if self.should_fail_write:
+            raise OSError("Write failed")
         self.written += data
 
     def flush(self):
         pass
 
     def read(self, size=1):
-        # return up to `size` bytes from internal buffer
+        if self.should_fail_read:
+            raise OSError("Read failed")
         if not self._buffer:
             return b''
         out = self._buffer[:size]
         self._buffer = self._buffer[size:]
+        return out
+
+    def read_all(self):
+        if self.should_fail_read:
+            raise OSError("Read failed")
+        out = self._buffer
+        self._buffer = b''
         return out
 
     def close(self):
@@ -30,17 +45,139 @@ class FakeSerial:
 def test_serial_transport_write_and_read(monkeypatch):
     fake = FakeSerial()
 
-    # Monkeypatch serial.Serial to return our fake serial
     monkeypatch.setattr(transport, 'serial', type('m', (), {'Serial': lambda *a, **k: fake}))
 
     t = transport.SerialTransport(port='/dev/fake', baudrate=9600)
     t.write(b'hello')
     assert fake.written == b'hello'
 
-    # prime buffer and read
     fake._buffer = b'abcde'
     data = t.read(3)
     assert data == b'abc'
 
     t.close()
     assert not fake.is_open
+
+
+def test_serial_transport_read_all(monkeypatch):
+    fake = FakeSerial()
+
+    monkeypatch.setattr(transport, 'serial', type('m', (), {'Serial': lambda *a, **k: fake}))
+
+    t = transport.SerialTransport(port='/dev/fake', baudrate=9600)
+
+    fake._buffer = b'abcde'
+    data = t.read_all()
+    assert data == b'abcde'
+    assert fake._buffer == b''
+
+
+def test_serial_transport_is_open(monkeypatch):
+    fake = FakeSerial()
+
+    monkeypatch.setattr(transport, 'serial', type('m', (), {'Serial': lambda *a, **k: fake}))
+
+    t = transport.SerialTransport(port='/dev/fake', baudrate=9600)
+    assert t.is_open() is True
+
+    t.close()
+    assert t.is_open() is False
+
+
+def test_serial_transport_write_on_closed(monkeypatch):
+    fake = FakeSerial()
+
+    monkeypatch.setattr(transport, 'serial', type('m', (), {'Serial': lambda *a, **k: fake}))
+
+    t = transport.SerialTransport(port='/dev/fake', baudrate=9600)
+    t.close()
+
+    with pytest.raises(SerialTransportClosedError):
+        t.write(b'hello')
+
+
+def test_serial_transport_read_on_closed(monkeypatch):
+    fake = FakeSerial()
+
+    monkeypatch.setattr(transport, 'serial', type('m', (), {'Serial': lambda *a, **k: fake}))
+
+    t = transport.SerialTransport(port='/dev/fake', baudrate=9600)
+    t.close()
+
+    with pytest.raises(SerialTransportClosedError):
+        t.read()
+
+
+def test_serial_transport_write_failure(monkeypatch):
+    fake = FakeSerial(should_fail_write=True)
+
+    monkeypatch.setattr(transport, 'serial', type('m', (), {'Serial': lambda *a, **k: fake, 'SerialException': Exception}))
+
+    t = transport.SerialTransport(port='/dev/fake', baudrate=9600)
+
+    with pytest.raises(SerialTransportError):
+        t.write(b'hello')
+
+
+def test_serial_transport_read_failure(monkeypatch):
+    fake = FakeSerial(should_fail_read=True)
+
+    monkeypatch.setattr(transport, 'serial', type('m', (), {'Serial': lambda *a, **k: fake, 'SerialException': Exception}))
+
+    t = transport.SerialTransport(port='/dev/fake', baudrate=9600)
+
+    with pytest.raises(SerialTransportError):
+        t.read()
+
+
+def test_serial_transport_invalid_port():
+    with pytest.raises(ValueError, match="port must be a non-empty string"):
+        transport.SerialTransport(port='', baudrate=9600)
+
+    with pytest.raises(ValueError, match="port must be a non-empty string"):
+        transport.SerialTransport(port=None, baudrate=9600)
+
+
+def test_serial_transport_invalid_baudrate():
+    with pytest.raises(ValueError, match="baudrate must be positive"):
+        transport.SerialTransport(port='/dev/fake', baudrate=0)
+
+    with pytest.raises(ValueError, match="baudrate must be positive"):
+        transport.SerialTransport(port='/dev/fake', baudrate=-1)
+
+
+def test_serial_transport_invalid_timeout():
+    with pytest.raises(ValueError, match="timeout must be non-negative"):
+        transport.SerialTransport(port='/dev/fake', baudrate=9600, timeout=-1)
+
+
+def test_serial_transport_context_manager(monkeypatch):
+    fake = FakeSerial()
+
+    monkeypatch.setattr(transport, 'serial', type('m', (), {'Serial': lambda *a, **k: fake}))
+
+    with transport.SerialTransport(port='/dev/fake', baudrate=9600) as t:
+        t.write(b'hello')
+        assert fake.written == b'hello'
+
+    assert not fake.is_open
+
+
+def test_serial_transport_configurable_timeout(monkeypatch):
+    fake = FakeSerial()
+
+    monkeypatch.setattr(transport, 'serial', type('m', (), {'Serial': lambda *a, **k: fake}))
+
+    t = transport.SerialTransport(port='/dev/fake', baudrate=9600, timeout=0.1)
+    assert t.is_open() is True
+    t.close()
+
+
+def test_serial_transport_read_zero_size(monkeypatch):
+    fake = FakeSerial()
+
+    monkeypatch.setattr(transport, 'serial', type('m', (), {'Serial': lambda *a, **k: fake}))
+
+    t = transport.SerialTransport(port='/dev/fake', baudrate=9600)
+    data = t.read(0)
+    assert data == b''

@@ -11,11 +11,16 @@ class TestCH9329ErrorHandling:
     """Test error handling in CH9329 protocol layer."""
     
     def test_timeout_on_no_response(self, fake_transport):
-        """Test that timeout occurs when device doesn't respond."""
+        """Test that timeout returns False and issues warning when device doesn't respond."""
+        import warnings
         ch = CH9329(fake_transport)
         
-        with pytest.raises(Exception):
-            ch._send_frame(0x99, b'')
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = ch._send_frame(0x99, b'')
+            assert result is False
+            assert len(w) == 1
+            assert "Failed to receive ACK" in str(w[0].message)
     
     def test_checksum_with_empty_data(self, fake_transport):
         """Test checksum calculation with empty data."""

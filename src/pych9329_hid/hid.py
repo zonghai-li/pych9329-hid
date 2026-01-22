@@ -3,7 +3,7 @@
 # @description High-level HID automation layer for CH9329 with
 # smooth, human-like interpolation for movement and dragging.
 
-import time,math
+import time, math
 from .keymap import MOD_MAP, char_to_hid
 from .ch9329 import MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE
 
@@ -14,7 +14,12 @@ MOUSE_BUTTON_MAP = {'left': MOUSE_BUTTON_LEFT, 'right': MOUSE_BUTTON_RIGHT, 'mid
 class HIDController:
     """
     High-level HID Controller
-    Ensures hardware-software synchronization via the CH9329 protocol.
+    Ensures hardware-software synchronization via CH9329 protocol.
+    
+    Error Handling:
+    - Failures from CH9329 layer propagate to caller
+    - CH9329 returns False for soft errors (timeout, ACK error) with warning
+    - CH9329 raises SerialTransportError for hard errors (transport failure)
     """
 
     def __init__(self, hid_instance, screen_width=1920, screen_height=1080):
@@ -364,7 +369,7 @@ class HIDController:
             return
             
         step_size = 4.62
-        steps = math.ceil(distance / step_size)
+        steps = max(1, math.ceil(distance / step_size))
 
         # 2. Calculate precise physical increments per step using floating-point
         # Using floating-point accumulation prevents directional drift even though
@@ -412,8 +417,8 @@ class HIDController:
         Sends multiple large negative movements to ensure the cursor
         is trapped in the top-left corner.
         """
-        # Push significantly further than the screen resolution to ensure 
-        # the cursor is trapped in the top-left corner.
+        # Push significantly further than screen resolution to ensure 
+        # cursor is trapped in top-left corner.
         iters = int(max(self._width, self._height) / 100) + 10
         
         for _ in range(iters):

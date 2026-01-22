@@ -64,6 +64,11 @@ with SerialTransport(port='/dev/ttyUSB0', baudrate=115200) as transport:
     ch9329.send_mouse_abs(x=100, y=200, buttons=0x01)
 ```
 
+**Keymap Support:**
+- Characters: a-z, A-Z, 0-9, space, punctuation
+- Special keys: f1-f12, enter, backspace, tab, esc, home, end, pageup, pagedown, insert, delete, arrows
+- Modifiers: ctrl, shift, alt, cmd (also supports: control, option, win, command, meta, super)
+
 ### High-Level HID Controller
 
 ```python
@@ -93,13 +98,87 @@ with SerialTransport(port='/dev/ttyUSB0', baudrate=115200) as transport:
 
 ## 📚 API Reference
 
+## ⚠️ Error Handling
+
+### CH9329 Layer
+
+The CH9329 protocol layer uses a hybrid error handling strategy:
+
+- **Soft Errors** (timeout, ACK error): Return `False` with a warning
+  - Device doesn't respond within timeout
+  - Device returns error status in ACK
+  
+- **Hard Errors** (transport failure): Raise `SerialTransportError`
+  - Serial port disconnected
+  - Serial port read/write failure
+  - Invalid serial port configuration
+
+**Example:**
+
+```python
+# Handle soft errors (timeout/ACK error)
+if not ch9329.send_keyboard(modifier=0, keycodes=[0x04]):
+    print("Timeout or ACK error, but continuing...")
+
+# Handle hard errors (transport failure)
+try:
+    ch9329.send_mouse_abs(x=100, y=200)
+except SerialTransportError as e:
+    print(f"Transport error: {e}")
+    # Reconnect or exit
+```
+
+### HIDController Layer
+
+HIDController does not check return values from CH9329 - failures propagate naturally to the caller. This allows users to decide how to handle errors based on their use case.
+
+**Example:**
+
+```python
+# Option 1: Ignore failures
+controller.press('a')  # Continues even if timeout
+
+# Option 2: Check and retry
+for _ in range(3):
+    if controller.press('a'):
+        break
+    time.sleep(0.1)
+
+# Option 3: Handle explicitly
+try:
+    controller.moveTo(100, 200)
+except SerialTransportError as e:
+    print(f"Fatal error: {e}")
+    sys.exit(1)
+```
+
+### SerialTransport Layer
+
+The transport layer provides custom exceptions:
+
+- `SerialTransportError`: Base exception for transport errors
+- `SerialTransportClosedError`: Raised when operation attempted on closed transport
+
+**Example:**
+
+```python
+try:
+    with SerialTransport(port='/dev/ttyUSB0') as transport:
+        ch9329 = CH9329(transport)
+        # ... use ch9329
+except SerialTransportError as e:
+    print(f"Failed to open serial port: {e}")
+```
+
+---
+
 ### CH9329 (Low-Level Protocol)
 
-| Method | Description |
-|---------|-------------|
-| `send_keyboard(modifier, keycodes)` | Send keyboard report with modifier and keycodes |
-| `send_mouse_rel(dx, dy, buttons, wheel)` | Send relative mouse movement |
-| `send_mouse_abs(x, y, buttons, wheel)` | Send absolute mouse position |
+| Method | Description | Returns |
+|---------|-------------|---------|
+| `send_keyboard(modifier, keycodes)` | Send keyboard report with modifier and keycodes | `True` if successful, `False` if timeout/ACK error |
+| `send_mouse_rel(dx, dy, buttons, wheel)` | Send relative mouse movement | `True` if successful, `False` if timeout/ACK error |
+| `send_mouse_abs(x, y, buttons, wheel)` | Send absolute mouse position | `True` if successful, `False` if timeout/ACK error |
 
 ### HIDController (High-Level API)
 
@@ -132,9 +211,27 @@ with SerialTransport(port='/dev/ttyUSB0', baudrate=115200) as transport:
 | `scroll(clicks)` | Vertical scroll | `controller.scroll(5)` |
 | `hscroll(clicks)` | Horizontal scroll | `controller.hscroll(-2)` |
 
+### SerialTransport (Transport Layer)
+
+| Method | Description | Returns |
+|---------|-------------|---------|
+| `write(data)` | Write raw bytes to port | None |
+| `read(size)` | Read up to `size` bytes | `bytes` read (may be empty on timeout) |
+| `read_all()` | Read all available data | All available bytes |
+| `is_open()` | Check if port is open | `bool` |
+| `close()` | Close the serial port | None |
+
 ---
 
 ## 🔧 Configuration
+
+### SerialTransport Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|--------|----------|-------------|
+| `port` | str | Required | Serial port path (e.g., '/dev/ttyUSB0' or 'COM3') |
+| `baudrate` | int | 115200 | Baud rate (115200 recommended for CH9329) |
+| `timeout` | float | 0.005 | Read/write timeout in seconds |
 
 ### HIDController Parameters
 
