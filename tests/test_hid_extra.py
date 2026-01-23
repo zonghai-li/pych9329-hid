@@ -3,7 +3,7 @@ Extended tests for HIDController operations.
 """
 import pytest
 from pych9329_hid import HIDController
-from conftest import FakeCH
+from conftest import FakeTransportWithFakeCH
 
 
 def test_moveRel_duration_zero_and_small_steps():
@@ -15,15 +15,15 @@ def test_moveRel_duration_zero_and_small_steps():
     2. Internal coordinates are updated correctly
     3. Absolute mouse calls are generated (moveTo uses abs)
     """
-    fake = FakeCH()
-    gui = HIDController(fake, screen_width=200, screen_height=200)
+    fake_transport = FakeTransportWithFakeCH()
+    gui = HIDController(fake_transport, screen_width=200, screen_height=200)
     gui.dwelling_time = 0
     gui.move_interval = 0.001
 
-    fake.mouse_calls.clear()
+    fake_transport._hid.mouse_calls.clear()
 
     gui.moveRel(10, 5, duration=0)
-    assert any(c[0] == 'abs' for c in fake.mouse_calls)
+    assert any(c[0] == 'abs' for c in fake_transport._hid.mouse_calls)
     assert gui._mouse_x == 10
     assert gui._mouse_y == 5
 
@@ -38,27 +38,27 @@ def test_click_and_double_click_and_hscroll():
     3. Scroll generates relative calls with wheel parameter
     4. Horizontal scroll generates keyboard modifier reports
     """
-    fake = FakeCH()
-    gui = HIDController(fake, screen_width=800, screen_height=600)
+    fake_transport = FakeTransportWithFakeCH()
+    gui = HIDController(fake_transport, screen_width=800, screen_height=600)
     gui.dwelling_time = 0
     gui.keypress_hold_time = 0
     gui.double_click_interval = 0
     gui.scroll_multiplier = 1
 
-    fake.mouse_calls.clear()
+    fake_transport._hid.mouse_calls.clear()
 
     gui.click(50, 40, button='left', clicks=2)
 
-    abs_calls = [c for c in fake.mouse_calls if c[0] == 'abs']
+    abs_calls = [c for c in fake_transport._hid.mouse_calls if c[0] == 'abs']
     assert len(abs_calls) >= 3
 
-    fake.mouse_calls.clear()
+    fake_transport._hid.mouse_calls.clear()
     gui.scroll(2)
-    rel_wheels = [c for c in fake.mouse_calls if c[0] == 'rel' and c[4] != 0]
+    rel_wheels = [c for c in fake_transport._hid.mouse_calls if c[0] == 'rel' and c[4] != 0]
     assert len(rel_wheels) >= 1
 
-    fake.keyboard_reports.clear()
-    fake.mouse_calls.clear()
+    fake_transport._hid.keyboard_reports.clear()
+    fake_transport._hid.mouse_calls.clear()
     gui.hscroll(1)
-    assert any(c[0] == 'rel' for c in fake.mouse_calls)
-    assert fake.keyboard_reports
+    assert any(c[0] == 'rel' for c in fake_transport._hid.mouse_calls)
+    assert fake_transport._hid.keyboard_reports

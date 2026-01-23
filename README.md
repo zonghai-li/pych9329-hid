@@ -33,10 +33,10 @@ You can use either of the full package name or shorter alias:
 
 ```python
 # Option 1: Full package name
-from pych9329_hid import HIDController, CH9329, SerialTransport
+from pych9329_hid import HIDController, SerialTransport
 
 # Option 2: Short alias (recommended)
-from pych9329 import HIDController, CH9329, SerialTransport
+from pych9329 import HIDController, SerialTransport
 ```
 
 Both options work identically - choose whichever you prefer!
@@ -72,12 +72,11 @@ with SerialTransport(port='/dev/ttyUSB0', baudrate=115200) as transport:
 ### High-Level HID Controller
 
 ```python
-from pych9329 import HIDController, CH9329, SerialTransport
+from pych9329 import HIDController, SerialTransport
 
 # Create HID controller
 with SerialTransport(port='/dev/ttyUSB0', baudrate=115200) as transport:
-    ch9329 = CH9329(transport)
-    controller = HIDController(ch9329, screen_width=1920, screen_height=1080)
+    controller = HIDController(transport, screen_width=1920, screen_height=1080)
     
     # Keyboard operations
     controller.press('a')
@@ -208,12 +207,11 @@ for port in ports:
 ### Complete Automation Example
 
 ```python
-from pych9329 import HIDController, CH9329, SerialTransport
+from pych9329 import HIDController, SerialTransport
 import time
 
 with SerialTransport(port='/dev/ttyUSB0', baudrate=115200) as transport:
-    ch9329 = CH9329(transport)
-    controller = HIDController(ch9329, screen_width=1920, screen_height=1080)
+    controller = HIDController(transport, screen_width=1920, screen_height=1080)
     
     # Open Spotlight (macOS)
     controller.hotkey('cmd', 'space')

@@ -5,7 +5,7 @@
 
 import time, math
 from .keymap import MOD_MAP, char_to_hid
-from .ch9329 import MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE
+from .ch9329 import CH9329, MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE
 
 
 # Mapping for mouse buttons to CH9329 bitmask
@@ -22,14 +22,14 @@ class HIDController:
     - CH9329 raises SerialTransportError for hard errors (transport failure)
     """
 
-    def __init__(self, hid_instance, screen_width=1920, screen_height=1080):
+    def __init__(self, transport, screen_width=1920, screen_height=1080):
         """
         Args:
-            hid_instance: Initialized CH9329 protocol instance.
+            transport: Initialized SerialTransport instance.
             screen_width (int): Logical width of the target display.
             screen_height (int): Logical height of the target display.
         """
-        self._hid = hid_instance
+        self._protocol = CH9329(transport)
         self._width = screen_width
         self._height = screen_height
         
@@ -90,7 +90,7 @@ class HIDController:
         # print(self._mouse_x, self._mouse_y, self._mouse_btn_mask)
 
         ax, ay = self._map_coords(self._mouse_x, self._mouse_y)
-        self._hid.send_mouse_abs(ax, ay, buttons=self._mouse_btn_mask)
+        self._protocol.send_mouse_abs(ax, ay, buttons=self._mouse_btn_mask)
 
 
     # -------------------------------------------------
@@ -104,7 +104,7 @@ class HIDController:
         if key_l in MOD_MAP:
             self._held_modifiers |= MOD_MAP[key_l]
             # send the full current state
-            self._hid.send_keyboard(self._held_modifiers, list(self._pressed_keys)[:6])
+            self._protocol.send_keyboard(self._held_modifiers, list(self._pressed_keys)[:6])
             self._safe_delay()
         else:
             # Preserve original `key` when converting to HID so we don't lose case
@@ -115,7 +115,7 @@ class HIDController:
                     self._pressed_keys.append(code)
                 # When sending: combine persistent modifiers with this key's temporary modifier (e.g., Shift for uppercase)
                 # Note: `mod` is not stored in `self._held_modifiers`
-                self._hid.send_keyboard(self._held_modifiers | mod, list(self._pressed_keys)[:6])
+                self._protocol.send_keyboard(self._held_modifiers | mod, list(self._pressed_keys)[:6])
                 self._safe_delay()
 
     def keyUp(self, key: str):
@@ -131,14 +131,14 @@ class HIDController:
                 self._pressed_keys.remove(code)
 
         # Regardless of what was released, sync the accurate persistent state
-        self._hid.send_keyboard(self._held_modifiers, list(self._pressed_keys)[:6])
+        self._protocol.send_keyboard(self._held_modifiers, list(self._pressed_keys)[:6])
         self._safe_delay()
 
     def releaseAllKey(self):
         """Emergency reset for all keyboard states."""
         self._held_modifiers = 0x00
         self._pressed_keys.clear()
-        self._hid.send_keyboard(0x00, [])
+        self._protocol.send_keyboard(0x00, [])
         self._safe_delay()
         
 
@@ -180,17 +180,17 @@ class HIDController:
         if final_codes or final_mod:
             # Step 1: Send the modifiers first (macOS stability)
             if final_mod:
-                self._hid.send_keyboard(final_mod, [])
+                self._protocol.send_keyboard(final_mod, [])
                 self._safe_delay()
 
             # Step 2: Send modifiers + key codes
-            self._hid.send_keyboard(final_mod, final_codes)
+            self._protocol.send_keyboard(final_mod, final_codes)
             
             # Step 3: Hold 
             self._safe_delay(self.keypress_hold_time)
             
             # Step 4: restore
-            self._hid.send_keyboard(self._held_modifiers, list(self._pressed_keys)[:6])
+            self._protocol.send_keyboard(self._held_modifiers, list(self._pressed_keys)[:6])
             self._safe_delay()
 
     # -------------------------------------------------
@@ -315,7 +315,7 @@ class HIDController:
         total_steps = self._clamp(total_steps, 0, 150)
 
         for _ in range(total_steps):
-            self._hid.send_mouse_rel(
+            self._protocol.send_mouse_rel(
                 dx=0, 
                 dy=0, 
                 buttons=self._mouse_btn_mask, 
@@ -397,7 +397,7 @@ class HIDController:
             
             if send_x != 0 or send_y != 0:
                 # Core operation: send relative displacement while button is held
-                self._hid.send_mouse_rel(send_x, send_y)
+                self._protocol.send_mouse_rel(send_x, send_y)
                 # self._safe_delay()
             
         # 5. Release mouse button
@@ -423,7 +423,7 @@ class HIDController:
         
         for _ in range(iters):
             # We use raw hid call to avoid updating our internal logical x,y yet
-            self._hid.send_mouse_rel(dx=-127, dy=-127, buttons=0)
+            self._protocol.send_mouse_rel(dx=-127, dy=-127, buttons=0)
             self._safe_delay()
         
         # Now sync the logic to the physical reality
