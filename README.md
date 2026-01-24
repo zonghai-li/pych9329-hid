@@ -62,6 +62,14 @@ with SerialTransport(port='/dev/ttyUSB0', baudrate=115200) as transport:
     
     # Send absolute mouse position
     ch9329.send_mouse_abs(x=100, y=200, buttons=0x01)
+    
+    # Get device information
+    info = ch9329.get_info()
+    print(f"Version: {info['version']}")
+    print(f"USB Connected: {info['usb_connected']}")
+    print(f"Num Lock: {info['num_lock_on']}")
+    print(f"Caps Lock: {info['caps_lock_on']}")
+    print(f"Scroll Lock: {info['scroll_lock_on']}")
 ```
 
 **Keymap Support:**
@@ -96,6 +104,27 @@ with SerialTransport(port='/dev/ttyUSB0', baudrate=115200) as transport:
 ---
 
 ## 📚 API Reference
+
+### CH9329 (Low-Level Protocol)
+
+#### Device Information
+
+| Method | Description | Returns |
+|---------|-------------|---------|
+| `get_info()` | Get device information | `dict` with keys: `version`, `usb_connected`, `num_lock_on`, `caps_lock_on`, `scroll_lock_on` |
+
+#### Keyboard Operations
+
+| Method | Description | Returns |
+|---------|-------------|---------|
+| `send_keyboard(modifier, keycodes)` | Send keyboard report | `bool` - True if successful |
+
+#### Mouse Operations
+
+| Method | Description | Returns |
+|---------|-------------|---------|
+| `send_mouse_rel(dx, dy, buttons, wheel)` | Send relative mouse movement | `bool` - True if successful |
+| `send_mouse_abs(x, y, buttons, wheel)` | Send absolute mouse position | `bool` - True if successful |
 
 ## ⚠️ Error Handling
 
@@ -136,16 +165,30 @@ The transport layer provides custom exceptions:
 | `keyUp(key)` | Release a key | `controller.keyUp('shift')` |
 | `write(text)` | Type a string | `controller.write('Hello\n')` |
 | `hotkey(*keys)` | Press key combination | `controller.hotkey('cmd', 'a')` |
+| `releaseAllKey()` | Release all keyboard keys | `controller.releaseAllKey()` |
+| `numpadPress(key)` | Press numpad key | `controller.numpadPress('7')` |
+| `numpadWrite(text)` | Type numpad characters | `controller.numpadWrite('123')` |
 
-#### Mouse Operations
+#### Mouse Button Operations
+
+| Method | Description | Example |
+|---------|-------------|----------|
+| `click(button, clicks)` | Click mouse button | `controller.click('left', clicks=2)` |
+| `mouseDown(button)` | Press and hold button | `controller.mouseDown('left')` |
+| `mouseUp(button)` | Release button | `controller.mouseUp('left')` |
+| `releaseMouseButton()` | Release all mouse buttons | `controller.releaseMouseButton()` |
+
+#### Mouse Movement
 
 | Method | Description | Example |
 |---------|-------------|----------|
 | `moveTo(x, y, duration)` | Move mouse to coordinates | `controller.moveTo(100, 200, duration=0.5)` |
 | `moveRel(dx, dy, duration)` | Move mouse relatively | `controller.moveRel(10, 5)` |
-| `click(button, clicks)` | Click mouse button | `controller.click('left', clicks=2)` |
-| `mouseDown(button)` | Press and hold button | `controller.mouseDown('left')` |
-| `mouseUp(button)` | Release button | `controller.mouseUp('left')` |
+
+#### Drag Operations
+
+| Method | Description | Example |
+|---------|-------------|----------|
 | `dragRel(dx, dy)` | Drag relatively | `controller.dragRel(50, 30)` |
 | `dragTo(x, y)` | Drag to coordinates | `controller.dragTo(100, 200)` |
 
@@ -155,6 +198,13 @@ The transport layer provides custom exceptions:
 |---------|-------------|----------|
 | `scroll(clicks)` | Vertical scroll | `controller.scroll(5)` |
 | `hscroll(clicks)` | Horizontal scroll | `controller.hscroll(-2)` |
+
+#### Hardware Operations
+
+| Method | Description | Returns |
+|---------|-------------|---------|
+| `reset()` | Reset cursor to (0,0) | None |
+| `getDeviceInfo()` | Get device information | `dict` with device info |
 
 ### SerialTransport (Transport Layer)
 
