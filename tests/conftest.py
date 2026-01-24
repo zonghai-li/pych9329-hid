@@ -134,7 +134,12 @@ def build_ack(cmd, frame_head=b'\x57\xAB', addr_default=0x00):
     Returns:
         bytes: Complete ACK frame
     """
-    return frame_head + bytes([addr_default, (cmd | 0x80), 0x00, 0x00])
+    data = b''
+    length = len(data)
+    cmd_response = cmd | 0x80
+    frame_without_checksum = frame_head + bytes([addr_default, cmd_response, length]) + data
+    checksum = sum(frame_without_checksum) & 0xFF
+    return frame_without_checksum + bytes([checksum])
 
 
 @pytest.fixture

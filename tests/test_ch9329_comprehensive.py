@@ -168,16 +168,16 @@ class TestCH9329FrameSending:
     """Test frame sending and error handling."""
     
     def test_send_frame_timeout(self, fake_transport):
-        """Test that timeout returns False and issues warning when no response received."""
+        """Test that timeout returns None and issues warning when no response received."""
         import warnings
         ch = CH9329(fake_transport)
         
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             result = ch._send_frame(0x99, b'')
-            assert result is False
+            assert result is None
             assert len(w) == 1
-            assert "Failed to receive ACK" in str(w[0].message)
+            assert "Failed send CMD 0x99 after 3 retries" in str(w[0].message)
     
     def test_send_frame_success(self, fake_transport):
         """Test successful frame sending with ACK response."""

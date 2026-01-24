@@ -3,19 +3,27 @@
 # @description High-level HID automation layer for CH9329 with
 # smooth, human-like interpolation for movement and dragging.
 
-import time, math
-from .keymap import MOD_MAP, char_to_hid
-from .ch9329 import CH9329, MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE
+import math
+import time
+import warnings
+
+from .ch9329 import CH9329, MOUSE_BUTTON_LEFT, MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_RIGHT
+from .keymap import MOD_MAP, NUMPAD_KEYS, char_to_hid
 
 
 # Mapping for mouse buttons to CH9329 bitmask
-MOUSE_BUTTON_MAP = {'left': MOUSE_BUTTON_LEFT, 'right': MOUSE_BUTTON_RIGHT, 'middle': MOUSE_BUTTON_MIDDLE}
+MOUSE_BUTTON_MAP = {
+    "left": MOUSE_BUTTON_LEFT,
+    "right": MOUSE_BUTTON_RIGHT,
+    "middle": MOUSE_BUTTON_MIDDLE,
+}
+
 
 class HIDController:
     """
     High-level HID Controller
     Ensures hardware-software synchronization via CH9329 protocol.
-    
+
     Error Handling:
     - Failures from CH9329 layer propagate to caller
     - CH9329 returns False for soft errors (timeout, ACK error) with warning
@@ -32,14 +40,14 @@ class HIDController:
         self._protocol = CH9329(transport)
         self._width = screen_width
         self._height = screen_height
-        
+
         # --- Global Timing Configuration ---
         # Interval between atomic reports to prevent hardware buffer overflow
-        self.dwelling_time = 0.015  # 15 ms default  
+        self.dwelling_time = 0.015  # 15 ms default
 
         # Specific delay for multi-click actions (e.g., double clicks)
         self.double_click_interval = 0.1
-        
+
         self.keypress_hold_time = 0.05  # Time to hold a key down during press()
 
         # Interval for smooth mouse movement steps
@@ -57,7 +65,7 @@ class HIDController:
 
         self._pressed_keys = []  # Tracks currently pressed non-modifier HID keycodes (ordered for deterministic reports)
 
-        self.reset()      # Anchor cursor to (0,0)
+        self.reset()  # Anchor cursor to (0,0)
 
     # -------------------------------------------------
     # Internal Helpers
@@ -84,14 +92,13 @@ class HIDController:
 
     def _commit_mouse_state(self):
         """
-        The Source of Truth: Synchronizes internal X, Y, and Button states 
+        The Source of Truth: Synchronizes internal X, Y, and Button states
         to the hardware via the ABSOLUTE MOUSE command (0x04).
         """
         # print(self._mouse_x, self._mouse_y, self._mouse_btn_mask)
 
         ax, ay = self._map_coords(self._mouse_x, self._mouse_y)
         self._protocol.send_mouse_abs(ax, ay, buttons=self._mouse_btn_mask)
-
 
     # -------------------------------------------------
     # Keyboard Operations (Improved)
@@ -104,7 +111,9 @@ class HIDController:
         if key_l in MOD_MAP:
             self._held_modifiers |= MOD_MAP[key_l]
             # send the full current state
-            self._protocol.send_keyboard(self._held_modifiers, list(self._pressed_keys)[:6])
+            self._protocol.send_keyboard(
+                self._held_modifiers, list(self._pressed_keys)[:6]
+            )
             self._safe_delay()
         else:
             # Preserve original `key` when converting to HID so we don't lose case
@@ -115,7 +124,9 @@ class HIDController:
                     self._pressed_keys.append(code)
                 # When sending: combine persistent modifiers with this key's temporary modifier (e.g., Shift for uppercase)
                 # Note: `mod` is not stored in `self._held_modifiers`
-                self._protocol.send_keyboard(self._held_modifiers | mod, list(self._pressed_keys)[:6])
+                self._protocol.send_keyboard(
+                    self._held_modifiers | mod, list(self._pressed_keys)[:6]
+                )
                 self._safe_delay()
 
     def keyUp(self, key: str):
@@ -140,7 +151,6 @@ class HIDController:
         self._pressed_keys.clear()
         self._protocol.send_keyboard(0x00, [])
         self._safe_delay()
-        
 
     def press(self, key: str):
         """Simulates a full key press: Down -> Wait -> Up."""
@@ -159,7 +169,7 @@ class HIDController:
         """
         final_mod = 0
         final_codes = []
-        
+
         for k in keys:
             k_orig = str(k)
             k_l = k_orig.lower()
@@ -176,7 +186,6 @@ class HIDController:
                     if code not in final_codes:
                         final_codes.append(code)
 
-
         if final_codes or final_mod:
             # Step 1: Send the modifiers first (macOS stability)
             if final_mod:
@@ -185,29 +194,48 @@ class HIDController:
 
             # Step 2: Send modifiers + key codes
             self._protocol.send_keyboard(final_mod, final_codes)
-            
-            # Step 3: Hold 
+
+            # Step 3: Hold
             self._safe_delay(self.keypress_hold_time)
-            
+
             # Step 4: restore
-            self._protocol.send_keyboard(self._held_modifiers, list(self._pressed_keys)[:6])
+            self._protocol.send_keyboard(
+                self._held_modifiers, list(self._pressed_keys)[:6]
+            )
             self._safe_delay()
 
+    def numpadPress(self, key: str):
+        """
+        Presses a numpad key. You can normally use press() for numpad keys with 'num' prefix.
+        For example, numpadPress('7') is equivalent to press('num7').
+        """
+        numkey = "num" + key
+        if numkey in NUMPAD_KEYS:
+            self.keyDown(numkey)
+            self._safe_delay(self.keypress_hold_time)
+            self.keyUp(numkey)
+        else:
+            warnings.warn(f"Invalid numpad key: {key}")
+
+    def numpadWrite(self, text: str):
+        """Types a string of numpad characters."""
+        for char in text:
+            self.numpadPress(char)
+
     # -------------------------------------------------
-    # Mouse Button  
+    # Mouse Button
     # On macOS, mouse button states must be sent via Absolute Mouse Frame,
     # as Relative Mouse Frame does not recognize button state changes.
     # -------------------------------------------------
-    def mouseDown(self, button='left'):
+    def mouseDown(self, button="left"):
         """Presses and holds the mouse button. Essential for dragging."""
         btn_mask = MOUSE_BUTTON_MAP.get(button.lower())
         if btn_mask:
             self._mouse_btn_mask |= btn_mask
-            self._commit_mouse_state()  
+            self._commit_mouse_state()
             self._safe_delay()
-        
 
-    def mouseUp(self, button='left'):
+    def mouseUp(self, button="left"):
         """Releases the specified mouse button."""
         btn_mask = MOUSE_BUTTON_MAP.get(button.lower())
         if btn_mask:
@@ -215,8 +243,7 @@ class HIDController:
             self._commit_mouse_state()
             self._safe_delay()
 
-
-    def click(self, x=None, y=None, button='left', clicks=1):
+    def click(self, x=None, y=None, button="left", clicks=1):
         """Simulates mouse clicks at optional coordinates."""
         if x is not None and y is not None:
             self.moveTo(x, y)
@@ -259,18 +286,18 @@ class HIDController:
         dist_x = target_x - start_x
         dist_y = target_y - start_y
 
-        #4 Avoid redundant movement if already at target
+        # 4 Avoid redundant movement if already at target
         if abs(dist_x) < 0.1 and abs(dist_y) < 0.1:
             return
 
         # 5. Dynamic step calculation
         steps = max(1, int(duration / self.move_interval))
-        
+
         for i in range(1, steps):
             # Ease-Out calculation: (1 - (1-t)^2)
             t = i / steps
-            ease_t = 1 - (1 - t) ** 2 
-            
+            ease_t = 1 - (1 - t) ** 2
+
             self._mouse_x = start_x + dist_x * ease_t
             self._mouse_y = start_y + dist_y * ease_t
 
@@ -283,7 +310,6 @@ class HIDController:
         self._commit_mouse_state()
         self._safe_delay()
 
-
     # -------------------------------------------------
     # Mouse Movement
     # When CH9329 sends relative movement commands on macOS, the distance moved
@@ -292,7 +318,6 @@ class HIDController:
     # -------------------------------------------------
     def moveRel(self, dx, dy, duration=0):
         self.moveTo(self._mouse_x + dx, self._mouse_y + dy, duration=duration)
-
 
     # -------------------------------------------------
     # Mouse Operations - Scrolling
@@ -316,19 +341,16 @@ class HIDController:
 
         for _ in range(total_steps):
             self._protocol.send_mouse_rel(
-                dx=0, 
-                dy=0, 
-                buttons=self._mouse_btn_mask, 
-                wheel=direction
+                dx=0, dy=0, buttons=self._mouse_btn_mask, wheel=direction
             )
-            
+
             self._safe_delay()
 
     def hscroll(self, clicks: int):
         """
         Simulates horizontal scrolling (macOS Compatible).
         Positive = Scroll Right, Negative = Scroll Left.
-        
+
         Note: Since CH9329 0x05 protocol lacks a horizontal wheel byte,
         we use the macOS standard 'Shift + Vertical Scroll' combo.
         This automatically uses self.scroll_multiplier for sensitivity.
@@ -337,14 +359,14 @@ class HIDController:
             return
 
         # 1. Physically press and hold Shift
-        self.keyDown('shift')
+        self.keyDown("shift")
 
         # 2. Call vertical scroll logic (OS interprets as horizontal when Shift is held)
         # This uses `self.scroll_multiplier` automatically
         self.scroll(clicks)
 
         # 3. Release Shift and restore state
-        self.keyUp('shift')
+        self.keyUp("shift")
 
     # -------------------------------------------------
     # Drag Operations (High-Level Actions)
@@ -354,11 +376,10 @@ class HIDController:
         dx, dy = x - self._mouse_x, y - self._mouse_y
         self.dragRel(dx, dy)
 
-
     def dragRel(self, dx, dy):
         """
         Relative drag movement in logical pixels.
-        
+
         Args:
             dx (float): Horizontal displacement in logical pixels
             dy (float): Vertical displacement in logical pixels
@@ -367,7 +388,7 @@ class HIDController:
         distance = math.sqrt(dx**2 + dy**2)
         if distance == 0:
             return
-            
+
         step_size = 4.62
         steps = max(1, math.ceil(distance / step_size))
 
@@ -382,31 +403,30 @@ class HIDController:
 
         # 4. Accumulation loop with remainder tracking
         accum_x, accum_y = 0.0, 0.0
-        
+
         for i in range(steps):
             accum_x += float_step_x
             accum_y += float_step_y
-            
+
             # Extract integer displacement for current step
             send_x = int(accum_x)
             send_y = int(accum_y)
-            
+
             # Deduct sent portion, preserve remainder for next frame
             accum_x -= send_x
             accum_y -= send_y
-            
+
             if send_x != 0 or send_y != 0:
                 # Core operation: send relative displacement while button is held
                 self._protocol.send_mouse_rel(send_x, send_y)
                 # self._safe_delay()
-            
+
         # 5. Release mouse button
         self.mouseUp()
-        
+
         # 6. Sync internal logical coordinates
         self._mouse_x += dx
         self._mouse_y += dy
-
 
     # -------------------------------------------------
     # Hardware reset for cursor position
@@ -417,18 +437,27 @@ class HIDController:
         Sends multiple large negative movements to ensure the cursor
         is trapped in the top-left corner.
         """
-        # Push significantly further than screen resolution to ensure 
+        # Push significantly further than screen resolution to ensure
         # cursor is trapped in top-left corner.
         iters = int(max(self._width, self._height) / 100) + 10
-        
+
         for _ in range(iters):
             # We use raw hid call to avoid updating our internal logical x,y yet
             self._protocol.send_mouse_rel(dx=-127, dy=-127, buttons=0)
             self._safe_delay()
-        
+
         # Now sync the logic to the physical reality
         self._mouse_x = 0
         self._mouse_y = 0
 
         self.releaseAllKey()  # Ensure clean state on init
         self.releaseMouseButton()
+
+    def getDeviceInfo(self) -> dict:
+        """
+        Get device information.
+
+        Returns:
+            dict: Device information dictionary
+        """
+        return self._protocol.get_info()
