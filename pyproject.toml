@@ -20,7 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3"
 ]
 dependencies = [
-    "pyserial>=3.0"
+    "pyserial>=3.0",
 ]
 
 [project.urls]
