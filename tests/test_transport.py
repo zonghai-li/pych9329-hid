@@ -1,7 +1,7 @@
 import pytest
 
 from pych9329_hid import transport
-from pych9329_hid.transport import SerialTransportError, SerialTransportClosedError
+from pych9329_hid.transport import TransportError, TransportClosedError
 
 
 class FakeSerial:
@@ -92,7 +92,7 @@ def test_serial_transport_write_on_closed(monkeypatch):
     t = transport.SerialTransport(port='/dev/fake', baudrate=9600)
     t.close()
 
-    with pytest.raises(SerialTransportClosedError):
+    with pytest.raises(TransportClosedError):
         t.write(b'hello')
 
 
@@ -104,7 +104,7 @@ def test_serial_transport_read_on_closed(monkeypatch):
     t = transport.SerialTransport(port='/dev/fake', baudrate=9600)
     t.close()
 
-    with pytest.raises(SerialTransportClosedError):
+    with pytest.raises(TransportClosedError):
         t.read()
 
 
@@ -115,7 +115,7 @@ def test_serial_transport_write_failure(monkeypatch):
 
     t = transport.SerialTransport(port='/dev/fake', baudrate=9600)
 
-    with pytest.raises(SerialTransportError):
+    with pytest.raises(TransportError):
         t.write(b'hello')
 
 
@@ -126,7 +126,7 @@ def test_serial_transport_read_failure(monkeypatch):
 
     t = transport.SerialTransport(port='/dev/fake', baudrate=9600)
 
-    with pytest.raises(SerialTransportError):
+    with pytest.raises(TransportError):
         t.read()
 
 
@@ -139,16 +139,11 @@ def test_serial_transport_invalid_port():
 
 
 def test_serial_transport_invalid_baudrate():
-    with pytest.raises(ValueError, match="baudrate must be positive"):
+    with pytest.raises(ValueError, match="baudrate must be 9600 or 115200"):
         transport.SerialTransport(port='/dev/fake', baudrate=0)
 
-    with pytest.raises(ValueError, match="baudrate must be positive"):
+    with pytest.raises(ValueError, match="baudrate must be 9600 or 115200"):
         transport.SerialTransport(port='/dev/fake', baudrate=-1)
-
-
-def test_serial_transport_invalid_timeout():
-    with pytest.raises(ValueError, match="timeout must be non-negative"):
-        transport.SerialTransport(port='/dev/fake', baudrate=9600, timeout=-1)
 
 
 def test_serial_transport_context_manager(monkeypatch):
@@ -162,15 +157,6 @@ def test_serial_transport_context_manager(monkeypatch):
 
     assert not fake.is_open
 
-
-def test_serial_transport_configurable_timeout(monkeypatch):
-    fake = FakeSerial()
-
-    monkeypatch.setattr(transport, 'serial', type('m', (), {'Serial': lambda *a, **k: fake}))
-
-    t = transport.SerialTransport(port='/dev/fake', baudrate=9600, timeout=0.1)
-    assert t.is_open() is True
-    t.close()
 
 
 def test_serial_transport_read_zero_size(monkeypatch):

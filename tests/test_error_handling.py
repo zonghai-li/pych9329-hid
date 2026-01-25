@@ -31,8 +31,8 @@ class TestCH9329ErrorHandling:
             warnings.simplefilter("always")
             result = ch._send_frame(0x99, b'')
             assert result is None
-            assert len(w) == 1
-            assert "Failed send CMD 0x99 after 3 retries" in str(w[0].message)
+            assert len(w) == 4  # 3 retry warnings + 1 final failure warning
+            assert "Failed to send CMD 0x99 after 3 retries" in str(w[3].message)  # Check the final warning
     
     def test_checksum_with_empty_data(self, fake_transport):
         """Test checksum calculation with empty data."""

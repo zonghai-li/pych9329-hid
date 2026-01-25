@@ -43,10 +43,10 @@ class HIDController:
 
         # --- Global Timing Configuration ---
         # Interval between atomic reports to prevent hardware buffer overflow
-        self.dwelling_time = 0.015  # 15 ms default
+        self.dwelling_time = 0.0  # 0 ms default
 
         # Specific delay for multi-click actions (e.g., double clicks)
-        self.double_click_interval = 0.1
+        self.double_click_interval = 0.08
 
         self.keypress_hold_time = 0.05  # Time to hold a key down during press()
 
@@ -85,9 +85,13 @@ class HIDController:
         """
         Maps logical pixel coordinates to HID Absolute range (0-4095).
         macOS requires precise mapping for the cursor to land on UI elements.
+        
         """
-        nx = int(self._clamp(x, 0, self._width - 1) * 4095 / (self._width - 1))
-        ny = int(self._clamp(y, 0, self._height - 1) * 4095 / (self._height - 1))
+       
+        OFFSET = 0.5  # Half-pixel offset to avoid edge issues
+        
+        nx = int(self._clamp(x + OFFSET, 0, self._width - 1) * 4095 / (self._width - 1))
+        ny = int(self._clamp(y + OFFSET, 0, self._height - 1) * 4095 / (self._height - 1))
         return nx, ny
 
     def _commit_mouse_state(self):
@@ -160,8 +164,12 @@ class HIDController:
 
     def write(self, text: str):
         """Types a string character by character with hardware pacing."""
+        start = time.time()
         for char in text:
             self.press(char)
+        elapsed = time.time() - start
+        print(f"[HID] write() consumed {elapsed:.3f}s")
+       
 
     def hotkey(self, *keys):
         """
@@ -301,8 +309,9 @@ class HIDController:
             self._mouse_x = start_x + dist_x * ease_t
             self._mouse_y = start_y + dist_y * ease_t
 
+            t = time.time()
             self._commit_mouse_state()
-            self._safe_delay(self.move_interval)
+            self._safe_delay(self.move_interval - (time.time() - t))
 
         # 6. Final frame: Precision landing
         self._mouse_x = target_x

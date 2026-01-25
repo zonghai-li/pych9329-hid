@@ -6,6 +6,8 @@
 import time
 import warnings
 
+from .transport import TransportTimeoutError
+
 
 # Protocol Constants
 FRAME_HEAD = b"\x57\xab"
@@ -49,7 +51,6 @@ ACK_FRAME_MIN_LENGTH = 6
 ACK_STATUS_SUCCESS = 0x00
 
 # Retry Constants
-ACK_TIMEOUT = 0.05  # seconds
 RETRY_COUNT = 3
 RETRY_DELAY = 0.02  # seconds
 
@@ -97,8 +98,7 @@ class CH9329:
     def _clear_buffer(self) -> None:
         """Clear any stale data from the serial buffer."""
         try:
-            while self.t.read(128):
-                pass
+            self.t.read_all()
         except Exception:
             pass
 
@@ -198,18 +198,27 @@ class CH9329:
         # Return data payload
         return data
 
-    def _send_frame(self, cmd: int, payload: bytes) -> bytes:
+    def _send_frame(self, cmd: int, payload: bytes, expected_payload_length: int | None = None) -> bytes:
         """
         Constructs, sends a frame, and returns response data.
+        
+        Implements retry mechanism for transport timeouts and protocol errors.
+        
         Args:
             cmd: Command byte.
             payload: Data payload.
+            expected_response_length: Expected response length (None if unknown).
 
         Returns:
-            bytes: Response data payload (None if fails).
+            bytes: Response data payload (None if fails after retries).
 
         Raises:
-            SerialTransportError: If transport error occurs.
+            TransportError: If transport error occurs (other than timeout).
+            
+        Note:
+            - Transport timeouts (TransportTimeoutError) are retried up to RETRY_COUNT times
+            - ACK errors (ACKError) are retried up to RETRY_COUNT times
+            - Other transport errors are raised immediately
         """
         # Build Packet: HEAD(2) + ADDR(1) + CMD(1) + LEN(1) + DATA(N) + CS(1)
         frame = bytearray(FRAME_HEAD)
@@ -219,31 +228,38 @@ class CH9329:
         frame.extend(payload)
         frame.append(self._calculate_checksum(frame))
 
+        expected_length = expected_payload_length + 6 if expected_payload_length is not None else 70
         for attempt in range(RETRY_COUNT):
             # Clear stale data from buffer
             self._clear_buffer()
 
             # Send Packet
-            self.t.write(frame)
+            try:
+                self.t.write(frame)
+            except TransportTimeoutError as e:
+                warnings.warn(f"Transport timeout: {e}, re-send cmd...")
+                if attempt < RETRY_COUNT - 1:
+                    time.sleep(RETRY_DELAY)
 
-            # Poll for response
-            start_time = time.time()
-            while (time.time() - start_time) < ACK_TIMEOUT:
-                response = self.t.read(70)  # CH9329 max frame length 70 bytes
+                continue
 
-                if not response:
-                    continue
+            # read response
+            response = self.t.read(expected_length)  
 
+            if response and len(response) > 0:
                 # Search for Frame Head in response
                 head_idx = response.find(FRAME_HEAD)
-                if head_idx != -1:
-                    response = response[head_idx:]
+                if head_idx >= 0:
+                    ack = response[head_idx:]
                     try:
-                        data = self._decode_response(response, cmd)
+                        data = self._decode_response(ack, cmd)
                         return data
                     except ACKError as e:
-                        warnings.warn(f"{e}, re-send cmd...")
-                        break
+                        warnings.warn(f"ack error: {e}, re-send cmd...")
+                else:
+                    warnings.warn("Frame head not found in response, re-send cmd...")
+            else:
+                warnings.warn("Empty response, re-send cmd...")
 
             if attempt < RETRY_COUNT - 1:
                 time.sleep(RETRY_DELAY)
@@ -272,9 +288,13 @@ class CH9329:
         Raises:
             SerialTransportError: If transport error occurs.
         """
-        data = self._send_frame(CMD_GET_INFO, b"")
+        data = self._send_frame(CMD_GET_INFO, b"", expected_payload_length=3)
 
-        if data is None or len(data) < 3:
+        if data is None:
+            return None
+
+        if len(data) < 3:
+            warnings.warn(f"get_info response data {data} length {len(data)} < 3")
             return None
 
         return {
@@ -318,7 +338,7 @@ class CH9329:
         keys = (keycodes[:6] + [0] * 6)[:6]
         payload = bytes([modifier, KEYBOARD_RESERVED_BYTE] + keys)
 
-        resp = self._send_frame(CMD_SEND_KEY, payload)
+        resp = self._send_frame(CMD_SEND_KEY, payload, expected_payload_length=1)
         return resp is not None and len(resp) > 0 and resp[0] == ACK_STATUS_SUCCESS
 
     # -------------------------------------------------
@@ -357,7 +377,7 @@ class CH9329:
             ]
         )
 
-        resp = self._send_frame(CMD_SEND_MS_REL, payload)
+        resp = self._send_frame(CMD_SEND_MS_REL, payload, expected_payload_length=1)
         return resp is not None and len(resp) > 0 and resp[0] == ACK_STATUS_SUCCESS
 
     def send_mouse_abs(self, x: int, y: int, buttons: int = 0, wheel: int = 0) -> bool:
@@ -396,5 +416,5 @@ class CH9329:
             ]
         )
 
-        resp = self._send_frame(CMD_SEND_MS_ABS, payload)
+        resp = self._send_frame(CMD_SEND_MS_ABS, payload, expected_payload_length=1)
         return resp is not None and len(resp) > 0 and resp[0] == ACK_STATUS_SUCCESS

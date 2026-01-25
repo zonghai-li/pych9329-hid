@@ -5,16 +5,20 @@
 import serial
 
 
-IO_DELAY = 0.005  # seconds
-
-
-class SerialTransportError(Exception):
+class TransportError(Exception):
     """Base exception for transport errors."""
+
     pass
 
 
-class SerialTransportClosedError(SerialTransportError):
+class TransportClosedError(TransportError):
     """Raised when operation attempted on closed transport."""
+
+    pass
+
+class TransportTimeoutError(TransportError):
+    """Raised when operation times out."""
+
     pass
 
 
@@ -23,7 +27,7 @@ class SerialTransport:
     Lightweight serial transport wrapper with context management.
     """
 
-    def __init__(self, port: str, baudrate: int = 115200, timeout: float = IO_DELAY):
+    def __init__(self, port: str, baudrate: int = 9600):
         """
         Args:
             port: Serial port path (e.g., '/dev/ttyUSB0' or 'COM3').
@@ -31,43 +35,59 @@ class SerialTransport:
             timeout: Read timeout in seconds (default 0.005).
 
         Raises:
-            SerialTransportError: If port cannot be opened.
+            TransportError: If port cannot be opened.
             ValueError: If parameters are invalid.
         """
         if not port or not isinstance(port, str):
             raise ValueError("port must be a non-empty string")
-        if baudrate <= 0:
-            raise ValueError("baudrate must be positive")
-        if timeout < 0:
-            raise ValueError("timeout must be non-negative")
+        if baudrate not in [9600, 115200]:
+            raise ValueError("baudrate must be 9600 or 115200")
+
+         # Timeout Calculation:
+        # send ~ 16bytes read ~ 16 bytes
+        # Baudrate | Request time | Response time | Overhead | Total
+        # ---------|--------------|---------------|----------|-------------------
+        # 9600     | 14.6 ms      | 14.6 ms       | 20 ms    | ~50 ms
+        # 115200   | 1.22 ms      | 1.22 ms       | 20 ms    | ~25 ms
+
+        read_timeout = 0.05 if baudrate == 9600 else 0.025
+        write_timeout = 0.02
 
         try:
             self.ser = serial.Serial(
-                port=port, baudrate=baudrate, timeout=timeout, write_timeout=timeout
+                port=port,
+                baudrate=baudrate,
+                timeout=read_timeout,
+                write_timeout=write_timeout,
             )
         except (serial.SerialException, OSError) as e:
-            raise SerialTransportError(f"Failed to open serial port {port}: {e}") from e
+            raise TransportError(f"Failed to open serial port {port}: {e}") from e
 
     def write(self, data: bytes) -> None:
         """
         Write raw bytes and ensure they are physically sent.
+        This function is blocking because it explicit flushes the data to ensure the transmission.
 
         Raises:
-            SerialTransportClosedError: If transport is closed.
-            SerialTransportError: If write fails.
+            TransportClosedError: If transport is closed.
+            TransportError: If write fails.
         """
-        if not self.ser.is_open:
-            raise SerialTransportClosedError("Cannot write: transport is closed")
 
         try:
             self.ser.write(data)
             self.ser.flush()
+        except serial.PortNotOpenError as e:
+            raise TransportClosedError("Cannot write: transport is closed") from e
+        except serial.SerialTimeoutException as e:
+            raise TransportTimeoutError(f"Write timeout: {e}") from e
         except (serial.SerialException, OSError) as e:
-            raise SerialTransportError(f"Write failed: {e}") from e
+            raise TransportError(f"Write failed: {e}") from e
 
-    def read(self, size: int = 64) -> bytes:
+    def read(self, size: int = 16) -> bytes:
         """
         Read up to 'size' bytes from the port.
+        This function is blocking read w/ read_timeout.
+        If timeout occurs, return whatever bytes are available.
 
         Args:
             size: Maximum number of bytes to read.
@@ -76,38 +96,38 @@ class SerialTransport:
             Bytes read (may be less than size if timeout occurs).
 
         Raises:
-            SerialTransportClosedError: If transport is closed.
-            SerialTransportError: If read fails.
+            TransportClosedError: If transport is closed.
+            TransportError: If read fails.
         """
-        if not self.ser.is_open:
-            raise SerialTransportClosedError("Cannot read: transport is closed")
 
         if size <= 0:
             return b""
 
         try:
             return self.ser.read(size)
+        except serial.PortNotOpenError as e:
+            raise TransportClosedError("Cannot read: transport is closed") from e
         except (serial.SerialException, OSError) as e:
-            raise SerialTransportError(f"Read failed: {e}") from e
+            raise TransportError(f"Read failed: {e}") from e
 
     def read_all(self) -> bytes:
         """
-        Read all currently available data from the port.
+        Read all currently available data from the port. This function is non-blocking.
 
         Returns:
             All available bytes.
 
         Raises:
-            SerialTransportClosedError: If transport is closed.
-            SerialTransportError: If read fails.
+            TransportClosedError: If transport is closed.
+            TransportError: If read fails.
         """
-        if not self.ser.is_open:
-            raise SerialTransportClosedError("Cannot read: transport is closed")
 
         try:
             return self.ser.read_all()
+        except serial.PortNotOpenError as e:
+            raise TransportClosedError("Cannot read: transport is closed") from e
         except (serial.SerialException, OSError) as e:
-            raise SerialTransportError(f"Read failed: {e}") from e
+            raise TransportError(f"Read failed: {e}") from e
 
     def close(self) -> None:
         """Safely close the serial port."""

@@ -40,8 +40,8 @@ def test_send_frame_timeout_raises(fake_transport):
         warnings.simplefilter("always")
         result = ch._send_frame(0x99, b'')
         assert result is None
-        assert len(w) == 1
-        assert "Failed send CMD" in str(w[0].message)
+        assert len(w) == 4  # 3 retry warnings + 1 final failure warning
+        assert "Failed to send CMD" in str(w[3].message)  # Check the final warning
 
 
 def test_decode_response_valid_success(fake_transport):
@@ -311,8 +311,41 @@ def test_get_info_timeout(fake_transport):
         warnings.simplefilter("always")
         info = ch.get_info()
         assert info is None
-        assert len(w) == 1
-        assert "Failed send CMD 0x01" in str(w[0].message)
+        assert len(w) == 4  # 3 retry warnings + 1 final failure warning
+        assert "Failed to send CMD 0x01" in str(w[3].message)  # Check the final warning
+
+
+def test_send_frame_transport_timeout(fake_transport):
+    """Test that TransportTimeoutError triggers retry mechanism."""
+    import warnings
+    from pych9329_hid.transport import TransportTimeoutError
+    
+    ch = CH9329(fake_transport)
+    
+    # Mock the transport to raise TransportTimeoutError on write
+    original_write = ch.t.write
+    def mock_write_timeout(data):
+        raise TransportTimeoutError("Write timeout occurred")
+    
+    ch.t.write = mock_write_timeout
+    
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        result = ch._send_frame(0x99, b'')
+        
+        # Should return None after all retries
+        assert result is None
+        
+        # Should have warnings for each retry attempt
+        # 3 retry attempts + 1 final failure = 4 warnings
+        assert len(w) == 4
+        
+        # Check that transport timeout warnings are present
+        transport_timeout_warnings = [msg for msg in w if "Transport timeout" in str(msg.message)]
+        assert len(transport_timeout_warnings) == 3  # One for each retry
+        
+        # Check final failure warning
+        assert "Failed to send CMD 0x99" in str(w[3].message)
 
 
 def test_is_num_lock_on(fake_transport):
