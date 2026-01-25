@@ -13,8 +13,11 @@ class FakeSerial:
         self.should_fail_write = should_fail_write
         self.should_fail_read = should_fail_read
         self.SerialException = Exception
+        self.PortNotOpenError = Exception  # Add this attribute for exception handling
 
     def write(self, data):
+        if not self.is_open:
+            raise self.PortNotOpenError("Port is closed")
         if self.should_fail_write:
             raise OSError("Write failed")
         self.written += data
@@ -23,6 +26,8 @@ class FakeSerial:
         pass
 
     def read(self, size=1):
+        if not self.is_open:
+            raise self.PortNotOpenError("Port is closed")
         if self.should_fail_read:
             raise OSError("Read failed")
         if not self._buffer:
@@ -32,6 +37,8 @@ class FakeSerial:
         return out
 
     def read_all(self):
+        if not self.is_open:
+            raise self.PortNotOpenError("Port is closed")
         if self.should_fail_read:
             raise OSError("Read failed")
         out = self._buffer
@@ -87,7 +94,15 @@ def test_serial_transport_is_open(monkeypatch):
 def test_serial_transport_write_on_closed(monkeypatch):
     fake = FakeSerial()
 
-    monkeypatch.setattr(transport, 'serial', type('m', (), {'Serial': lambda *a, **k: fake}))
+    # Create a proper mock that includes all necessary attributes
+    mock_serial = type('m', (), {
+        'Serial': lambda *a, **k: fake,
+        'PortNotOpenError': Exception,
+        'SerialException': Exception,
+        'SerialTimeoutException': Exception
+    })
+    
+    monkeypatch.setattr(transport, 'serial', mock_serial)
 
     t = transport.SerialTransport(port='/dev/fake', baudrate=9600)
     t.close()
@@ -99,7 +114,15 @@ def test_serial_transport_write_on_closed(monkeypatch):
 def test_serial_transport_read_on_closed(monkeypatch):
     fake = FakeSerial()
 
-    monkeypatch.setattr(transport, 'serial', type('m', (), {'Serial': lambda *a, **k: fake}))
+    # Create a proper mock that includes all necessary attributes
+    mock_serial = type('m', (), {
+        'Serial': lambda *a, **k: fake,
+        'PortNotOpenError': Exception,
+        'SerialException': Exception,
+        'SerialTimeoutException': Exception
+    })
+    
+    monkeypatch.setattr(transport, 'serial', mock_serial)
 
     t = transport.SerialTransport(port='/dev/fake', baudrate=9600)
     t.close()
@@ -111,7 +134,15 @@ def test_serial_transport_read_on_closed(monkeypatch):
 def test_serial_transport_write_failure(monkeypatch):
     fake = FakeSerial(should_fail_write=True)
 
-    monkeypatch.setattr(transport, 'serial', type('m', (), {'Serial': lambda *a, **k: fake, 'SerialException': Exception}))
+    # Create a proper mock that includes all necessary attributes
+    mock_serial = type('m', (), {
+        'Serial': lambda *a, **k: fake,
+        'PortNotOpenError': Exception,
+        'SerialException': Exception,
+        'SerialTimeoutException': Exception
+    })
+    
+    monkeypatch.setattr(transport, 'serial', mock_serial)
 
     t = transport.SerialTransport(port='/dev/fake', baudrate=9600)
 
@@ -122,7 +153,15 @@ def test_serial_transport_write_failure(monkeypatch):
 def test_serial_transport_read_failure(monkeypatch):
     fake = FakeSerial(should_fail_read=True)
 
-    monkeypatch.setattr(transport, 'serial', type('m', (), {'Serial': lambda *a, **k: fake, 'SerialException': Exception}))
+    # Create a proper mock that includes all necessary attributes
+    mock_serial = type('m', (), {
+        'Serial': lambda *a, **k: fake,
+        'PortNotOpenError': Exception,
+        'SerialException': Exception,
+        'SerialTimeoutException': Exception
+    })
+    
+    monkeypatch.setattr(transport, 'serial', mock_serial)
 
     t = transport.SerialTransport(port='/dev/fake', baudrate=9600)
 
