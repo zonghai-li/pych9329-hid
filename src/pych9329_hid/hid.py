@@ -85,13 +85,15 @@ class HIDController:
         """
         Maps logical pixel coordinates to HID Absolute range (0-4095).
         macOS requires precise mapping for the cursor to land on UI elements.
-        
+
         """
-       
+
         OFFSET = 0.5  # Half-pixel offset to avoid edge issues
-        
+
         nx = int(self._clamp(x + OFFSET, 0, self._width - 1) * 4095 / (self._width - 1))
-        ny = int(self._clamp(y + OFFSET, 0, self._height - 1) * 4095 / (self._height - 1))
+        ny = int(
+            self._clamp(y + OFFSET, 0, self._height - 1) * 4095 / (self._height - 1)
+        )
         return nx, ny
 
     def _commit_mouse_state(self):
@@ -164,12 +166,9 @@ class HIDController:
 
     def write(self, text: str):
         """Types a string character by character with hardware pacing."""
-        start = time.time()
+
         for char in text:
             self.press(char)
-        elapsed = time.time() - start
-        print(f"[HID] write() consumed {elapsed:.3f}s")
-       
 
     def hotkey(self, *keys):
         """
