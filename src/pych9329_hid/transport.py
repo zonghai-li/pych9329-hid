@@ -16,6 +16,7 @@ class TransportClosedError(TransportError):
 
     pass
 
+
 class TransportTimeoutError(TransportError):
     """Raised when operation times out."""
 
@@ -43,15 +44,15 @@ class SerialTransport:
         if baudrate not in [9600, 115200]:
             raise ValueError("baudrate must be 9600 or 115200")
 
-         # Timeout Calculation:
+        # Timeout Calculation:
         # send ~ 16bytes read ~ 16 bytes
-        # Baudrate | Request time | Response time | Overhead | Total
-        # ---------|--------------|---------------|----------|-------------------
-        # 9600     | 14.6 ms      | 14.6 ms       | 20 ms    | ~50 ms
-        # 115200   | 1.22 ms      | 1.22 ms       | 20 ms    | ~25 ms
+        # Baudrate | Request time | resp<=56bytes | Processing | Total
+        # ---------|--------------|---------------|------------|-------------------
+        # 9600     | 14.6 ms      | 58 ms         | 5-15 ms    | ~90 ms
+        # 115200   | 1.22 ms      | 5  ms         | 5-15 ms    | ~21 ms
 
-        read_timeout = 0.05 if baudrate == 9600 else 0.025
-        write_timeout = 0.02
+        read_timeout = 0.1 if baudrate == 9600 else 0.03
+        write_timeout = 0.05 if baudrate == 9600 else 0.015
 
         try:
             self.ser = serial.Serial(
