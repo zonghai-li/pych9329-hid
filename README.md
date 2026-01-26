@@ -33,10 +33,10 @@ You can use either of the full package name or shorter alias:
 
 ```python
 # Option 1: Full package name
-from pych9329_hid import HIDController, SerialTransport
+from pych9329_hid import HIDController
 
 # Option 2: Short alias (recommended)
-from pych9329 import HIDController, SerialTransport
+from pych9329 import HIDController
 ```
 
 Both options work identically - choose whichever you prefer!
@@ -103,6 +103,65 @@ with SerialTransport(port='/dev/ttyUSB0', baudrate=115200) as transport:
 
 ---
 
+## ⚙️ Configuration Example
+
+```python
+from pych9329 import CH9329, SerialTransport
+
+with SerialTransport(port='/dev/ttyUSB0', baudrate=115200) as transport:
+    ch9329 = CH9329(transport)
+    
+    # Get current configuration
+    config = ch9329.get_config()
+    # CH9329Config:
+    # Work Mode: Keyboard+Mouse (Hardware)
+    # Serial Mode: Protocol mode (Hardware)
+    # Address: 0x00
+    # Baud Rate: 9600
+    # Packet Interval: 3ms
+    # VID: 0x861A
+    # PID: 0x29E1
+    # Keyboard Submit Interval: 0ms
+    # Keyboard Release Delay: 1ms
+    # Auto Enter Flag: 0
+    # Enter Characters: 0d00000000000000
+    # Filter Strings: 0000000000000000
+    # Custom Descriptor Enable: {'vendor': True, 'product': False, 'sn': False}
+    # Keyboard Fast Submission: 0
+      
+    # Modify configuration
+    config.baudrate = 9600
+    config.vid = 0x1234
+    config.pid = 0x5678
+    
+    # Enable vendor and product string descriptors
+    config.custom_descriptor_enable = {'vendor': True, 'product': True, 'sn': False}
+    
+    # Apply configuration
+    if ch9329.set_config(config):
+        print("Configuration updated successfully!")
+    
+    # Set USB descriptors
+    ch9329.set_usb_descriptor(0x00, "My Company")      # Vendor
+    ch9329.set_usb_descriptor(0x01, "CH9329 Keyboard") # Product
+    ch9329.set_usb_descriptor(0x02, "SN-12345")        # Serial Number
+    
+    # Read back USB descriptors
+    vendor = ch9329.get_usb_descriptor(0x00)
+    product = ch9329.get_usb_descriptor(0x01)
+    serial = ch9329.get_usb_descriptor(0x02)
+    print(f"Vendor: {vendor}, Product: {product}, SN: {serial}")
+    
+    # Restore factory defaults
+    if ch9329.set_config_to_default():
+        print("Factory settings restored!")
+    
+    # Reset chip
+    ch9329.chip_reset()
+```
+
+---
+
 ## 📚 API Reference
 
 ### CH9329 (Low-Level Protocol)
@@ -112,6 +171,27 @@ with SerialTransport(port='/dev/ttyUSB0', baudrate=115200) as transport:
 | Method | Description | Returns |
 |---------|-------------|---------|
 | `get_info()` | Get device information | `dict` with keys: `version`, `usb_connected`, `num_lock_on`, `caps_lock_on`, `scroll_lock_on` |
+
+#### Configuration Management
+
+| Method | Description | Returns |
+|---------|-------------|---------|
+| `get_config()` | Get device configuration | `CH9329Config` object or `None` |
+| `set_config(config)` | Set device configuration | `bool` - True if successful |
+| `set_config_to_default()` | Restore factory default settings | `bool` - True if successful |
+| `chip_reset()` | Perform software reset | `bool` - True if successful |
+
+#### USB String Descriptors
+
+| Method | Description | Returns |
+|---------|-------------|---------|
+| `get_usb_descriptor(type)` | Get USB string descriptor | `str` or `None` |
+| `set_usb_descriptor(type, string)` | Set USB string descriptor | `bool` - True if successful |
+
+**USB Descriptor Types:**
+- `0x00`: Vendor string descriptor
+- `0x01`: Product string descriptor
+- `0x02`: Serial number string descriptor
 
 #### Keyboard Operations
 
@@ -291,6 +371,10 @@ with SerialTransport(port='/dev/ttyUSB0', baudrate=115200) as transport:
 - ✅ **Smooth mouse movement** with interpolation
 - ✅ **Drag and drop support** for UI automation
 - ✅ **OS-independent** - works on macOS, Windows, Linux
+- ✅ **Device configuration management** - read/write CH9329 configuration
+- ✅ **Factory default restoration** - reset to default settings
+- ✅ **USB string descriptor support** - read/write vendor, product, serial number
+- ✅ **Software reset** - chip reset without unplugging
 
 ---
 
