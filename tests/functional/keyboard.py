@@ -4,7 +4,7 @@ import time
 import random
 
 # Add parent directories to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../src'))
 from pych9329_hid import HIDController, SerialTransport, CH9329
 
 def run_circular_test(hid):

@@ -66,7 +66,7 @@ def test_decode_response_valid_success(fake_transport):
     frame.extend(data)
     frame.append(sum(frame) & 0xFF)
     
-    result = ch._decode_response(bytes(frame), CMD_GET_INFO)
+    result = ch._decode_and_verify(bytes(frame), CMD_GET_INFO)
     
     assert result == data
 
@@ -93,7 +93,7 @@ def test_decode_response_valid_error(fake_transport):
     frame.append(sum(frame) & 0xFF)
     
     with pytest.raises(ACKError) as exc_info:
-        ch._decode_response(bytes(frame), CMD_SEND_KEY)
+        ch._decode_and_verify(bytes(frame), CMD_SEND_KEY)
     
     assert 'error status 0x01' in str(exc_info.value)
     assert 'CMD 0x02' in str(exc_info.value)
@@ -113,7 +113,7 @@ def test_decode_response_invalid_header(fake_transport):
     frame = b'\x57\xAA\x00\x81\x08\x30\x01\x00\x00\x00\x00\x00\x00\x00\x00'
     
     with pytest.raises(ACKError) as exc_info:
-        ch._decode_response(frame, CMD_GET_INFO)
+        ch._decode_and_verify(frame, CMD_GET_INFO)
     
     assert 'Invalid frame header' in str(exc_info.value)
     assert '57aa' in str(exc_info.value)
@@ -134,7 +134,7 @@ def test_decode_response_too_short(fake_transport):
     frame = b'\x57\xAB\x00\x81\x00'
     
     with pytest.raises(ACKError) as exc_info:
-        ch._decode_response(frame, CMD_GET_INFO)
+        ch._decode_and_verify(frame, CMD_GET_INFO)
     
     assert 'Frame too short' in str(exc_info.value)
     assert '5 bytes' in str(exc_info.value)
@@ -160,7 +160,7 @@ def test_decode_response_length_mismatch(fake_transport):
     frame.append(0x00)  # checksum
     
     with pytest.raises(ACKError) as exc_info:
-        ch._decode_response(bytes(frame), CMD_GET_INFO)
+        ch._decode_and_verify(bytes(frame), CMD_GET_INFO)
     
     assert 'Length mismatch' in str(exc_info.value)
     assert 'LEN=8' in str(exc_info.value)
@@ -186,7 +186,7 @@ def test_decode_response_checksum_mismatch(fake_transport):
     frame.append(0xFF)  # Wrong checksum
     
     with pytest.raises(ACKError) as exc_info:
-        ch._decode_response(bytes(frame), CMD_GET_INFO)
+        ch._decode_and_verify(bytes(frame), CMD_GET_INFO)
     
     assert 'Checksum mismatch' in str(exc_info.value)
     assert 'received 0xFF' in str(exc_info.value)
@@ -212,7 +212,7 @@ def test_decode_response_unexpected_command(fake_transport):
     frame.append(sum(frame) & 0xFF)
     
     with pytest.raises(ACKError) as exc_info:
-        ch._decode_response(bytes(frame), CMD_GET_INFO)
+        ch._decode_and_verify(bytes(frame), CMD_GET_INFO)
     
     assert 'Unexpected command' in str(exc_info.value)
     assert '0x90' in str(exc_info.value)
@@ -236,7 +236,7 @@ def test_decode_response_empty_data(fake_transport):
     frame.append(0)  # LEN = 0
     frame.append(sum(frame) & 0xFF)  # checksum
     
-    result = ch._decode_response(bytes(frame), CMD_SEND_KEY)
+    result = ch._decode_and_verify(bytes(frame), CMD_SEND_KEY)
     
     assert result == b''
 

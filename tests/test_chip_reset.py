@@ -7,8 +7,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 import pytest
 from pych9329_hid.ch9329 import (
     CH9329,
-    CMD_GET_PARA_CFG,
-    CMD_SET_PARA_CFG,
+    CMD_RESET,
     ACK_STATUS_SUCCESS
 )
 
@@ -48,48 +47,58 @@ def build_response(cmd: int, payload: bytes) -> bytes:
     return bytes(frame)
 
 
-class TestErrorHandling:
-    """Test error handling in CH9329 methods."""
+class TestChipReset:
+    """Test chip_reset method."""
     
-    def test_get_config_returns_none_on_failure(self):
-        """Test get_config returns None when command fails."""
-        ch9329 = CH9329(MockTransport())
-        ch9329.t.response_data = None
-        
-        result = ch9329.get_config()
-        
-        assert result is None
-    
-    def test_set_config_returns_false_on_failure(self):
-        """Test set_config returns False when command fails."""
-        ch9329 = CH9329(MockTransport())
-        ch9329.t.response_data = None
-        
-        from pych9329_hid.config import VALID_BAUDRATES, CH9329Config
-        data = bytearray(50)
-        data[3:7] = (9600).to_bytes(4, byteorder='big')  # Set valid baudrate
-        config = CH9329Config(data)
-        
-        result = ch9329.set_config(config)
-        
-        assert result is False
-    
-    def test_set_config_returns_false_on_error_status(self):
-        """Test set_config returns False on error status."""
+    def test_chip_reset_success(self):
+        """Test chip reset successfully."""
         ch9329 = CH9329(MockTransport())
         ch9329.t.response_data = build_response(
-            CMD_SET_PARA_CFG | 0x80,
+            CMD_RESET | 0x80,
+            bytes([ACK_STATUS_SUCCESS])
+        )
+        
+        result = ch9329.chip_reset()
+        
+        assert result is True
+    
+    def test_chip_reset_failure(self):
+        """Test chip reset failure."""
+        ch9329 = CH9329(MockTransport())
+        ch9329.t.response_data = build_response(
+            CMD_RESET | 0x80,
             bytes([0x01])  # Error status
         )
         
-        from pych9329_hid.config import VALID_BAUDRATES, CH9329Config
-        data = bytearray(50)
-        data[3:7] = (9600).to_bytes(4, byteorder='big')  # Set valid baudrate
-        config = CH9329Config(data)
-        
-        result = ch9329.set_config(config)
+        result = ch9329.chip_reset()
         
         assert result is False
+    
+    def test_command_failure_returns_false(self):
+        """Test that command failure returns False."""
+        ch9329 = CH9329(MockTransport())
+        ch9329.t.response_data = None
+        
+        result = ch9329.chip_reset()
+        
+        assert result is False
+    
+    def test_command_frame_structure(self):
+        """Test that command frame is built correctly."""
+        ch9329 = CH9329(MockTransport())
+        ch9329.t.response_data = build_response(
+            CMD_RESET | 0x80,
+            bytes([ACK_STATUS_SUCCESS])
+        )
+        
+        ch9329.chip_reset()
+        
+        frame = ch9329.t.write_data
+        assert frame[0:2] == b"\x57\xab"
+        assert frame[2] == 0x00
+        assert frame[3] == CMD_RESET
+        assert frame[4] == 0  # Empty payload
+        assert frame[5] == calculate_checksum(frame[0:5])
 
 
 if __name__ == "__main__":
