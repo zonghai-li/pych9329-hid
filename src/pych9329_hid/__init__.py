@@ -7,7 +7,7 @@ from .config import CH9329Config
 from .hid import HIDController
 from .transport import SerialTransport
 
-__version__ = "0.1.9"
+__version__ = "0.2.0"
 __author__ = "zonghai-li"
 __email__ = "zonghai@gmail.com"
 
