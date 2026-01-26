@@ -3,6 +3,7 @@ PyCH9329-HID is a high-level Python package for CH9329 HID chip, designed to pro
 """
 
 from .ch9329 import CH9329
+from .config import CH9329Config
 from .hid import HIDController
 from .transport import SerialTransport
 
@@ -10,4 +11,4 @@ __version__ = "0.1.9"
 __author__ = "zonghai-li"
 __email__ = "zonghai@gmail.com"
 
-__all__ = ["CH9329", "HIDController", "SerialTransport", "__version__"]
+__all__ = ["CH9329", "CH9329Config", "HIDController", "SerialTransport", "__version__"]
