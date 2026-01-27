@@ -177,6 +177,13 @@ class HIDController:
         final_mod = 0
         final_codes = []
 
+        if not keys: 
+            return
+        
+        if len(keys) == 1:
+            self.press(keys[0])
+            return
+            
         for k in keys:
             k_orig = str(k)
             k_l = k_orig.lower()
@@ -184,8 +191,7 @@ class HIDController:
                 final_mod |= MOD_MAP[k_l]
             else:
                 # Preserve original casing for char_to_hid
-                mod, code = char_to_hid(k_orig)
-                # 'mod' can be 0 (MOD_NONE) which is valid!
+                mod, code = char_to_hid(k_l)
                 if code is not None:
                     if mod:
                         final_mod |= mod
@@ -193,23 +199,29 @@ class HIDController:
                     if code not in final_codes:
                         final_codes.append(code)
 
-        if final_codes or final_mod:
-            # Step 1: Send the modifiers first (macOS stability)
-            if final_mod:
-                self._protocol.send_keyboard(final_mod, [])
-                self._safe_delay()
+        
+        # Step 1: Send modifiers (+ keycodes if any)
+        self._protocol.send_keyboard(final_mod, final_codes[:6])
+        
+        self._safe_delay()
 
-            # Step 2: Send modifiers + key codes
-            self._protocol.send_keyboard(final_mod, final_codes)
+        # Step 2: Hold
+        self._safe_delay(self.keypress_hold_time)
 
-            # Step 3: Hold
-            self._safe_delay(self.keypress_hold_time)
-
-            # Step 4: restore
-            self._protocol.send_keyboard(
-                self._held_modifiers, list(self._pressed_keys)[:6]
-            )
+        # Step 3: release keycodes first (if any)
+        if final_codes:
+            self._protocol.send_keyboard(final_mod, [])
             self._safe_delay()
+
+        # Step 4: release modifiers
+        self._held_modifiers &= ~final_mod
+        self._pressed_keys.clear()
+
+        self._protocol.send_keyboard(
+            self._held_modifiers, self._pressed_keys
+        )
+        self._safe_delay()
+
 
     def numpadPress(self, key: str):
         """
@@ -445,6 +457,11 @@ class HIDController:
         Sends multiple large negative movements to ensure the cursor
         is trapped in the top-left corner.
         """
+
+        self.releaseAllKey()  # Ensure clean state on init
+
+        self.releaseMouseButton()
+
         # Push significantly further than screen resolution to ensure
         # cursor is trapped in top-left corner.
         iters = int(max(self._width, self._height) / 100) + 10
@@ -457,9 +474,7 @@ class HIDController:
         # Now sync the logic to the physical reality
         self._mouse_x = 0
         self._mouse_y = 0
-
-        self.releaseAllKey()  # Ensure clean state on init
-        self.releaseMouseButton()
+        
 
     def getDeviceInfo(self) -> dict:
         """
