@@ -8,7 +8,7 @@ import time
 import warnings
 
 from .ch9329 import CH9329, MOUSE_BUTTON_LEFT, MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_RIGHT
-from .keymap import MOD_MAP, NUMPAD_KEYS, char_to_hid
+from .keymap import MOD_MAP, NUMPAD_KEYS, to_hid_code
 
 
 # Mapping for mouse buttons to CH9329 bitmask
@@ -123,7 +123,7 @@ class HIDController:
             self._safe_delay()
         else:
             # Preserve original `key` when converting to HID so we don't lose case
-            mod, code = char_to_hid(key)
+            mod, code = to_hid_code(key)
             if code:
                 # Append ordinary key to the pressed list in order (avoid duplicates)
                 if code not in self._pressed_keys:
@@ -143,7 +143,7 @@ class HIDController:
             # Remove explicit persistent modifier
             self._held_modifiers &= ~MOD_MAP[key_l]
         else:
-            mod, code = char_to_hid(key)
+            mod, code = to_hid_code(key)
             if code in self._pressed_keys:
                 self._pressed_keys.remove(code)
 
@@ -190,8 +190,8 @@ class HIDController:
             if k_l in MOD_MAP:
                 final_mod |= MOD_MAP[k_l]
             else:
-                # Preserve original casing for char_to_hid
-                mod, code = char_to_hid(k_l)
+                # Preserve original casing for to_hid_code
+                mod, code = to_hid_code(k_l)
                 if code is not None:
                     if mod:
                         final_mod |= mod
