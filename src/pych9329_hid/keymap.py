@@ -29,6 +29,17 @@ MOD_MAP = {
     "command": MOD_LGUI,
     "meta": MOD_LGUI,
     "super": MOD_LGUI,
+    "rctrl": MOD_RCTRL,
+    "rcontrol": MOD_RCTRL,
+    "rshift": MOD_RSHFT,
+    "ralt": MOD_RALT,
+    "roption": MOD_RALT,
+    "rgui": MOD_RGUI,
+    "rwin": MOD_RGUI,
+    "rcmd": MOD_RGUI,
+    "rcommand": MOD_RGUI,
+    "rmeta": MOD_RGUI,
+    "rsuper": MOD_RGUI,
 }
 
 # -------------------------------------------------
