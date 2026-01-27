@@ -62,11 +62,17 @@ KEY = {
     "0": 0x27,
     # Basic Control
     "\n": 0x28,  # Enter
+    "enter": 0x28,
     "\b": 0x2A,  # Backspace
+    "backspace": 0x2A,
     "\t": 0x2B,  # Tab
+    "tab": 0x2B,
     " ": 0x2C,  # Space
+    "space": 0x2C,
     # Punctuation (US Layout)
     "-": 0x2D,
+    "subtract": 0x2D,
+    "minus": 0x2D,
     "=": 0x2E,
     "[": 0x2F,
     "]": 0x30,
@@ -76,7 +82,9 @@ KEY = {
     "`": 0x35,
     ",": 0x36,
     ".": 0x37,
+    "decimal": 0x37,
     "/": 0x38,
+    "divide": 0x38,
 }
 
 # -------------------------------------------------
@@ -92,10 +100,14 @@ SHIFTED = {
     "^": ("6", MOD_LSHFT),
     "&": ("7", MOD_LSHFT),
     "*": ("8", MOD_LSHFT),
+    "multiply": ("8", MOD_LSHFT),
     "(": ("9", MOD_LSHFT),
+    "leftparen": ("9", MOD_LSHFT),
     ")": ("0", MOD_LSHFT),
+    "rightparen": ("0", MOD_LSHFT),
     "_": ("-", MOD_LSHFT),
     "+": ("=", MOD_LSHFT),
+    "add": ("=", MOD_LSHFT),
     "{": ("[", MOD_LSHFT),
     "}": ("]", MOD_LSHFT),
     "|": ("\\", MOD_LSHFT),
@@ -157,19 +169,15 @@ SPECIAL_KEYS = {
     "left": 0x50,
     "down": 0x51,
     "up": 0x52,
-    "enter": 0x28,
-    "backspace": 0x2A,
-    "tab": 0x2B,
     "esc": 0x29,
-    "space": 0x2C,
 
     **NUMPAD_KEYS,
 }
 
 
-def char_to_hid(ch: str):
+def to_hid_code(ch: str):
     """
-    Translates a single character to (modifier, keycode).
+    Translates a single character or special named key to (modifier, keycode).
 
     Example:
         'a' -> (MOD_NONE, 0x04)
