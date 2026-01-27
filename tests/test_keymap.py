@@ -1,36 +1,36 @@
 import pytest
-from pych9329_hid.keymap import char_to_hid, MOD_LSHFT, MOD_NONE
+from pych9329_hid.keymap import to_hid_code, MOD_LSHFT, MOD_NONE
 
 
 def test_letters_and_shift():
-    mod, code = char_to_hid('a')
+    mod, code = to_hid_code('a')
     assert mod == MOD_NONE
     assert code is not None
 
-    mod, code = char_to_hid('A')
+    mod, code = to_hid_code('A')
     assert mod == MOD_LSHFT
     assert code is not None
 
 
 def test_shifted_symbols():
-    mod, code = char_to_hid('!')
+    mod, code = to_hid_code('!')
     assert mod == MOD_LSHFT
     assert code is not None
 
-    mod, code = char_to_hid('@')
+    mod, code = to_hid_code('@')
     assert mod == MOD_LSHFT
     assert code is not None
 
 
 def test_special_keys():
-    mod, code = char_to_hid('enter')
+    mod, code = to_hid_code('enter')
     assert mod == MOD_NONE
     assert code == 0x28
 
-    mod, code = char_to_hid('space')
+    mod, code = to_hid_code('space')
     assert code == 0x2C
 
 
 def test_unknown():
-    mod, code = char_to_hid('非ASCII')
+    mod, code = to_hid_code('非ASCII')
     assert code is None

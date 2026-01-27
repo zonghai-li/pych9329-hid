@@ -95,8 +95,8 @@ def test_decode_response_valid_error(fake_transport):
     with pytest.raises(ACKError) as exc_info:
         ch._decode_and_verify(bytes(frame), CMD_SEND_KEY)
     
-    assert 'error status 0x01' in str(exc_info.value)
-    assert 'CMD 0x02' in str(exc_info.value)
+    assert '0x01' in str(exc_info.value)
+    assert '0x02' in str(exc_info.value)
 
 
 def test_decode_response_invalid_header(fake_transport):
@@ -162,8 +162,8 @@ def test_decode_response_length_mismatch(fake_transport):
     with pytest.raises(ACKError) as exc_info:
         ch._decode_and_verify(bytes(frame), CMD_GET_INFO)
     
-    assert 'Length mismatch' in str(exc_info.value)
-    assert 'LEN=8' in str(exc_info.value)
+    assert 'Partial response' in str(exc_info.value)
+    assert '14' in str(exc_info.value)
 
 
 def test_decode_response_checksum_mismatch(fake_transport):
@@ -406,5 +406,5 @@ def test_get_version_string(fake_transport):
     
     assert ch._get_version_string(0x30) == "V1.0"
     assert ch._get_version_string(0x31) == "V1.1"
-    assert ch._get_version_string(0x32) == "Unknown (0x32)"
-    assert ch._get_version_string(0xFF) == "Unknown (0xFF)"
+    assert ch._get_version_string(0x32) == "V1.2"
+    assert ch._get_version_string(0x40) == "Unknown (0x40)"

@@ -3,6 +3,7 @@ Shared test fixtures and utilities for all test modules.
 """
 import pytest
 from pych9329_hid import CH9329
+from pych9329_hid.ch9329 import ACK_STATUS_SUCCESS
 
 
 class FakeCH:
@@ -122,7 +123,7 @@ class FakeTransport:
         return self._responses.pop(0)
 
 
-def build_ack(cmd, frame_head=b'\x57\xAB', addr_default=0x00):
+def build_ack(cmd, frame_head=b'\x57\xAB', addr_default=0x00, status=ACK_STATUS_SUCCESS):
     """
     Build an ACK response frame for testing.
     
@@ -130,11 +131,12 @@ def build_ack(cmd, frame_head=b'\x57\xAB', addr_default=0x00):
         cmd: Command byte to acknowledge
         frame_head: Frame header bytes (default: 0x57 0xAB)
         addr_default: Device address (default: 0x00)
+        status: Status byte (default: ACK_STATUS_SUCCESS = 0x00)
     
     Returns:
         bytes: Complete ACK frame
     """
-    data = b''
+    data = bytes([status])
     length = len(data)
     cmd_response = cmd | 0x80
     frame_without_checksum = frame_head + bytes([addr_default, cmd_response, length]) + data

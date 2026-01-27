@@ -4,7 +4,7 @@ import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../src'))
 from pych9329_hid import HIDController, SerialTransport, CH9329
-from pych9329_hid.keymap import MOD_LALT, MOD_RALT, char_to_hid
+from pych9329_hid.keymap import MOD_LALT, MOD_RALT, to_hid_code
 
 with SerialTransport('/dev/tty.usbserial-110', 115200) as t:
     h = HIDController(t)
@@ -41,8 +41,16 @@ with SerialTransport('/dev/tty.usbserial-110', 115200) as t:
     # h._protocol.send_keyboard(0x00, [0x00] * 6)
     # time.sleep(1.0)
 
-    h.press("4")
-    h.hotkey("alt", "2")
+   
+    h.press("2")
+    h.press("multiply")
+
+    h.press("leftparen")
+    h.write("2+3")
+    h.press("rightparen")
+    h.press("enter")
+
+    # h.hotkey("alt", "2")
     # h.press("alt")
     # h.hotkey("cmd", "a")
     # # time.sleep(0.5)
